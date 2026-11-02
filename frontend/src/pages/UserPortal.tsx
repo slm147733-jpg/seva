@@ -13,6 +13,10 @@ import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { errorMessage, formatIST, useMe } from "@/lib/hooks";
 import { endSession } from "@/lib/session";
 import type { Link, Ok, UserOut } from "@/lib/types";
+import UploadBar from "@/components/files/UploadBar";
+import AttachmentList from "@/components/files/AttachmentList";
+import AttachmentDetail from "@/components/files/AttachmentDetail";
+import { useLiveAttachments } from "@/lib/live";
 
 function ProfileDialog({ user }: { user: UserOut }) {
   const qc = useQueryClient();
@@ -98,6 +102,9 @@ function ProfileDialog({ user }: { user: UserOut }) {
 export default function UserPortal() {
   const me = useMe();
   const [q, setQ] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const live = useLiveAttachments(me.data?.role === "user" ? "user" : undefined);
+  const files = live.data && !live.isError ? live.data.items : [];
   const links = useQuery({
     queryKey: ["my-links"],
     queryFn: () => apiGet<Link[]>("/auth/me/links"),
@@ -139,6 +146,28 @@ export default function UserPortal() {
             <span className="rounded-full bg-white/70 px-3 py-1">Member since {user ? formatIST(user.created_at).split(",")[0] : "—"}</span>
             {user && <ProfileDialog key={user.name} user={user} />}
           </div>
+        </section>
+
+        <section className="mt-12" data-testid="portal-files-section">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-orange-700 font-semibold">Applications</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight">My files & receipts</h2>
+            </div>
+            <span className="text-sm text-stone-500" data-testid="portal-files-count">
+              {files.filter((f) => f.status === "generated").length} of {files.length} receipts ready
+            </span>
+          </div>
+          <UploadBar />
+          <div className="mt-4">
+            <AttachmentList
+              items={files}
+              showUser={false}
+              onOpen={setOpenId}
+              emptyText="You haven't sent any files yet. Use the camera or attach PDF / images above."
+            />
+          </div>
+          {user && <AttachmentDetail id={openId} role="user" myId={user.id} onClose={() => setOpenId(null)} />}
         </section>
 
         <section className="mt-12">

@@ -41,6 +41,14 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("is_active", ASCENDING), ("audience", ASCENDING), ("order", ASCENDING)], name="active_aud_order"),
     ],
     "settings": [IndexModel([("key", ASCENDING)], name="key", unique=True)],
+    "attachments": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("user_id", ASCENDING), ("last_event_at", DESCENDING)], name="user_last_event"),
+        IndexModel([("last_event_at", DESCENDING)], name="last_event_desc"),
+    ],
+    "attachment_messages": [
+        IndexModel([("attachment_id", ASCENDING), ("created_at", ASCENDING)], name="attachment_created"),
+    ],
 }
 
 

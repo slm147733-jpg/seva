@@ -89,3 +89,54 @@ export interface SiteData {
   nav_pages: Page[];
   links: Link[];
 }
+
+// backend/models/attachment.py
+export type FileStatus = "not_started" | "seen" | "processing" | "generated";
+
+export interface FileMeta {
+  file_id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+}
+
+export interface AttachmentOut {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_mobile: string;
+  file: FileMeta;
+  status: FileStatus;
+  created_at: string;
+  seen_at: string | null;
+  processing_at: string | null;
+  generated_at: string | null;
+  last_event_at: string;
+  last_event_role: Role;
+  last_event_text: string;
+  unread: boolean;
+  message_count: number;
+}
+
+export interface AttachmentList {
+  server_time: string;
+  items: AttachmentOut[];
+}
+
+export interface MessageOut {
+  id: string;
+  attachment_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: Role;
+  text: string;
+  file: FileMeta | null;
+  is_receipt: boolean;
+  created_at: string;
+}
+
+export interface AttachmentDetail {
+  server_time: string;
+  attachment: AttachmentOut;
+  messages: MessageOut[];
+}

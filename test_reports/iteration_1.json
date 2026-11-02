@@ -1,0 +1,81 @@
+{
+  "iteration": 1,
+  "summary": "13/13 backend pytest cases passed; 5/5 browser checks passed. All 8 acceptance_matrix criteria exercised with backend and/or browser artifacts.",
+  "passed": 10,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "User uploads PDF/JPG/JPEG/PNG files via 'Attach files' on /portal; each file becomes its own row; .txt/>10MB rejected",
+      "name": "test_tscheck_file_type_validation.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/attachments valid PNG -> 201, row status not_started; .txt -> 400; >10MB PNG -> 400; admin POST /api/attachments -> 403 (spec deviation: admins cannot self-create)"
+    },
+    {
+      "criterion": "User uploads PDF/JPG/JPEG/PNG files via 'Attach files' on /portal (each file becomes its own row)",
+      "name": "portal-upload-file",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Logged in as Test User (9000000001); uploaded tscheck-browser-upload-<ts>.png via attach-files-input -> new row visible with 'Not yet started'; .txt upload rejected client-side with a toast, no row created"
+    },
+    {
+      "criterion": "Camera capture dialog: continuous capture, Save as one PDF / Save as images; verify POST /api/attachments/camera mode=pdf|images directly",
+      "name": "test_tscheck_camera_capture.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/attachments/camera mode=pdf with 2 JPEGs -> 201, single application/pdf attachment (camera-*.pdf); mode=images with 3 JPEGs -> 201, 3 separate image/jpeg attachments"
+    },
+    {
+      "criterion": "Camera capture dialog UI: 'Use camera' opens dialog; 'Add from device' fallback works; Save as images creates attachments",
+      "name": "camera-dialog-fallback",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Opened camera-dialog from /portal; headless Chromium exposes a fake camera (video preview renders) but 'Add from device' fallback input is present regardless; added 2 photos via camera-device-input, Save as images closed dialog and new camera-*.jpg rows appeared in the list"
+    },
+    {
+      "criterion": "Admin 'User files' tab (/admin?tab=files) shows new user uploads live (polling ~4s) without reload",
+      "name": "admin-files-tab-live-update",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Two browser contexts: user context uploaded tscheck-live-admin-<ts>.png; admin context (already on /admin?tab=files) found the row via files-search-input within 10s, status 'Not yet started' -- no page reload performed"
+    },
+    {
+      "criterion": "Admin opens a file (clicks the row) -> status becomes 'Seen' on both admin and user dashboards live",
+      "name": "admin-opens-file-sets-seen-live",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Admin clicked the row for tscheck-seen-flow-<ts>.png, attachment-detail opened; attachment-status-<id> flipped to data-status=seen on admin list; user portal (separate context, no reload) showed the same status=seen within 10s"
+    },
+    {
+      "criterion": "~60s after Seen, status automatically becomes 'Processing' with a live mm:ss timer; admin attaches receipt -> 'Generated', timer freezes to Total",
+      "name": "test_tscheck_status_lifecycle.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/attachments/{id} as admin set status=seen; polled up to 75s, attachment.status flipped to 'processing' with processing_at set; admin POST .../messages with a PDF file -> 201, attachment.status='generated' with generated_at set on both admin and user GETs"
+    },
+    {
+      "criterion": "Admin attaches a file in remarks ('Attach receipt') and sends -> message shows 'Receipt / Acknowledgement', status 'Generated' both sides, timer freezes to Total mm:ss, user can open/download",
+      "name": "admin-receipt-chat-remarks",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Admin posted a plain remark then attached tscheck-receipt-<ts>.pdf via remark-file-input and sent; message bubble showed 'Receipt / Acknowledgement'; detail header showed 'Generated' and 'Total mm:ss'; user context (separate) showed attachment-status data-status=generated and could see the receipt message with a working download link"
+    },
+    {
+      "criterion": "Remarks chat: both user and admin can post text/files; both see all messages; user file reply does NOT set status to generated",
+      "name": "test_tscheck_remarks_chat.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "User and admin each POSTed a text message; GET /api/attachments/{id} as both roles showed both messages. Separately, user POSTed a file reply -> attachment.status remained 'seen' (not 'generated'), message.is_receipt=false"
+    },
+    {
+      "criterion": "Access control: user cannot list/open another user's attachment or /api/files/{id} (404); anonymous gets 401; unicode filenames download fine (200)",
+      "name": "test_tscheck_access_control.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Cross-user GET /api/attachments/{id} and /api/files/{file_id} both -> 404 for a second user; anonymous GET /api/attachments, /api/attachments/{id}, /api/files/{file_id} all -> 401; GET /api/files/{id}?download=true for a 'tscheck-unicode-\u20b9-\ud83d\udcc4.png' filename -> 200"
+    }
+  ]
+}

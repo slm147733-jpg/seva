@@ -11,7 +11,9 @@ import httpx
 import pytest
 import pytest_asyncio
 
-BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8001")
+# sk_session is a Secure cookie; httpx (like browsers) won't send it back over plain
+# http://localhost, so auth-dependent tests must talk to the public https origin.
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://sevakendra-admin--7tra4y2j.preview.emergentagent.com")
 API_URL = f"{BACKEND_URL}/api"
 
 
@@ -45,3 +47,35 @@ async def aclient():
 
 
 # --- app-specific fixtures below this line ---
+
+ADMIN_MOBILE = "7396406422"
+ADMIN_PASSWORD = "Raju@14773"
+USER_MOBILE = "9000000001"
+USER_PASSWORD = "test123"
+
+
+@pytest.fixture
+def admin_client():
+    """httpx client authenticated as the seeded admin (Raju)."""
+    c = httpx.Client(base_url=API_URL, timeout=30.0)
+    r = c.post("/auth/login", json={"mobile": ADMIN_MOBILE, "password": ADMIN_PASSWORD})
+    assert r.status_code == 200, r.text
+    yield c
+    c.close()
+
+
+@pytest.fixture
+def user_client():
+    """httpx client authenticated as the seeded Test User."""
+    c = httpx.Client(base_url=API_URL, timeout=30.0)
+    r = c.post("/auth/login", json={"mobile": USER_MOBILE, "password": USER_PASSWORD})
+    assert r.status_code == 200, r.text
+    yield c
+    c.close()
+
+
+def unique_mobile() -> str:
+    """Generate a syntactically-valid unique 10-digit mobile starting 8xxxxxxxxx for throwaway users."""
+    import random
+
+    return "8" + "".join(str(random.randint(0, 9)) for _ in range(9))
