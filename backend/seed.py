@@ -1,8 +1,14 @@
-"""Idempotent seed: default site settings, pages and quick links (no accounts — first admin uses /admin/setup)."""
+"""Idempotent seed: default site settings, pages, quick links and the owner admin account."""
 
 import asyncio
+import uuid
+from datetime import datetime, timezone
 
+from lib.auth import hash_password
 from lib.db import db, ensure_indexes
+
+ADMIN_MOBILE = "7396406422"
+ADMIN_PASSWORD = "Raju@14773"
 from models.content import Link, Page, Settings
 
 PAGES = [
@@ -33,6 +39,16 @@ async def main() -> None:
         await db.pages.update_one({"slug": p.slug}, {"$setOnInsert": p.model_dump()}, upsert=True)
     for link in LINKS:
         await db.links.update_one({"title": link.title}, {"$setOnInsert": link.model_dump()}, upsert=True)
+    # Owner admin account (login at /login).
+    now = datetime.now(timezone.utc)
+    await db.users.update_one(
+        {"mobile": ADMIN_MOBILE},
+        {
+            "$set": {"password_hash": hash_password(ADMIN_PASSWORD), "role": "admin", "is_active": True},
+            "$setOnInsert": {"id": str(uuid.uuid4()), "name": "Raju", "created_at": now, "last_login": None},
+        },
+        upsert=True,
+    )
     print("seeded")
 
 

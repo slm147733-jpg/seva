@@ -19,7 +19,7 @@
 - settings {key:"site", site_name, tagline, hero_title, hero_subtitle, announcement, helpline, email, address}
 
 ## Seed (`python backend/seed.py`, idempotent)
-Settings; pages about/services/contact; 4 links (3 audience both, "National Scholarship Portal" users-only). No accounts.
+Settings; pages about/services/contact; 4 links (3 audience both, "National Scholarship Portal" users-only). Owner admin 7396406422 / Raju@14773 (upserted; password re-applied on each run).
 
 ## API (all under /api)
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links
