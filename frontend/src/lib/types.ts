@@ -141,6 +141,14 @@ export interface AttachmentDetail {
   messages: MessageOut[];
 }
 
+export interface BulkDelete {
+  ids: string[];
+}
+
+export interface DeleteResult {
+  deleted: number;
+}
+
 // backend/models/report.py
 export interface DayRow {
   date: string;

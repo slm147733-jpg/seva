@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Status = Literal["not_started", "seen", "processing", "generated"]
 
@@ -52,3 +52,11 @@ class AttachmentDetail(BaseModel):
     server_time: datetime
     attachment: AttachmentOut
     messages: list[MessageOut]
+
+
+class BulkDelete(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class DeleteResult(BaseModel):
+    deleted: int

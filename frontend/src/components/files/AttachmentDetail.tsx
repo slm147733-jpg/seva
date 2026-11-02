@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, ExternalLink, Paperclip, ReceiptText, Send, X } from "lucide-react";
+import { Download, ExternalLink, Paperclip, ReceiptText, Send, Trash2, X } from "lucide-react";
+import { ConfirmDelete } from "@/components/admin/common";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { apiGet, apiUpload, fileUrl } from "@/lib/api";
+import { apiDelete, apiGet, apiUpload, fileUrl } from "@/lib/api";
 import { errorMessage, formatIST } from "@/lib/hooks";
 import { ACCEPT, POLL_MS, formatBytes, playChime, syncServerTime, validateFiles } from "@/lib/live";
-import type { AttachmentDetail as Detail, FileMeta, MessageOut, Role } from "@/lib/types";
+import type { AttachmentDetail as Detail, DeleteResult, FileMeta, MessageOut, Role } from "@/lib/types";
 import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
 
@@ -142,6 +143,29 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <StatusBadge status={a.status} testId="detail-status" />
               <StatusTimer a={a} testId="detail-timer" />
+              {role === "admin" && (
+                <span className="ml-auto">
+                  <ConfirmDelete
+                    title="Delete this file?"
+                    description="Removes the file, its remarks, receipts and WhatsApp alert entries for both sides. This cannot be undone."
+                    testId="detail-delete-button"
+                    trigger={<Trash2 className="size-4" />}
+                    onConfirm={async () => {
+                      try {
+                        await apiDelete<DeleteResult>(`/attachments/${a.id}`);
+                        toast.success("File deleted");
+                        onClose();
+                        qc.removeQueries({ queryKey: ["attachment", a.id] });
+                        qc.invalidateQueries({ queryKey: ["attachments"] });
+                        qc.invalidateQueries({ queryKey: ["daily-report"] });
+                        qc.invalidateQueries({ queryKey: ["whatsapp-alerts"] });
+                      } catch (e) {
+                        toast.error(errorMessage(e, "Could not delete"));
+                      }
+                    }}
+                  />
+                </span>
+              )}
             </div>
           )}
         </SheetHeader>

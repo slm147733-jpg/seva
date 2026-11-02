@@ -17,7 +17,8 @@ from PIL import Image
 from lib.auth import current_user
 from lib.db import db
 from lib.whatsapp import queue_receipt_alert
-from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut
+from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult
+from lib.auth import require_admin
 
 router = APIRouter(tags=["attachments"])
 bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uploads")
@@ -267,3 +268,35 @@ async def get_file(file_id: str, download: bool = Query(False), user: dict = Dep
             "Cache-Control": "private, max-age=3600",
         },
     )
+
+
+# ---------- Admin: delete files (attachment + its thread, stored files and alerts) ----------
+async def _purge(ids: list[str]) -> int:
+    docs = await db.attachments.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "file": 1}).to_list(len(ids))
+    if not docs:
+        return 0
+    found = [d["id"] for d in docs]
+    file_ids = [d["file"]["file_id"] for d in docs]
+    async for m in db.attachment_messages.find({"attachment_id": {"$in": found}, "file": {"$ne": None}}, {"file.file_id": 1}):
+        file_ids.append(m["file"]["file_id"])
+    for fid in file_ids:
+        try:
+            await bucket.delete(ObjectId(fid))
+        except Exception:  # already gone / bad id — keep purging the rest
+            pass
+    await db.attachment_messages.delete_many({"attachment_id": {"$in": found}})
+    await db.whatsapp_alerts.delete_many({"attachment_id": {"$in": found}})
+    await db.attachments.delete_many({"id": {"$in": found}})
+    return len(found)
+
+
+@router.delete("/attachments/{attachment_id}", response_model=DeleteResult, dependencies=[Depends(require_admin)])
+async def delete_attachment(attachment_id: str):
+    if await _purge([attachment_id]) == 0:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return DeleteResult(deleted=1)
+
+
+@router.post("/attachments/bulk-delete", response_model=DeleteResult, dependencies=[Depends(require_admin)])
+async def bulk_delete(body: BulkDelete):
+    return DeleteResult(deleted=await _purge(body.ids))

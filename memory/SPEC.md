@@ -35,6 +35,7 @@ Settings; pages about/services/contact; 4 links (3 audience both, "National Scho
 - Admin tab "Daily report" (/admin?tab=reports): GET /api/admin/reports/daily?days=7|14|30 (1–90) → per IST day: received, seen, generated, avg_minutes (same start rule as the on-screen timer), plus current status counts and the overall average.
 - WhatsApp receipt alert: every admin receipt calls lib/whatsapp.queue_receipt_alert → `whatsapp_alerts` row with a message and login link (from the request Origin, else APP_URL). MOCKED: no provider is connected (WHATSAPP_PROVIDER unset) → status "not_connected", nothing is sent. Log at GET /api/admin/whatsapp-alerts, shown on the report tab.
 - User status filters: shared StatusFilter chips on /portal (testids portal-files-filter-*) and the admin User files tab (files-filter-*).
+- Admin deletes files: DELETE /api/attachments/{id} and POST /api/attachments/bulk-delete {ids} (admin only; users get 403). Removes the attachment, its messages, every GridFS file (original + thread files) and its whatsapp_alerts, so the report counts drop too. UI: row checkboxes + "Select all shown" + "Delete selected" (confirm dialog) on the User files tab; a trash icon in the file detail sheet.
 
 ## API (all under /api)
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links

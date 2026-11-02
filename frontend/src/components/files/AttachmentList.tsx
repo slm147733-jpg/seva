@@ -12,11 +12,13 @@ export function FileIcon({ type, className = "size-5" }: { type: string; classNa
   );
 }
 
-export default function AttachmentList({ items, showUser, onOpen, emptyText }: {
+export default function AttachmentList({ items, showUser, onOpen, emptyText, selected, onToggle }: {
   items: AttachmentOut[];
   showUser: boolean;
   onOpen: (id: string) => void;
   emptyText: string;
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -28,11 +30,23 @@ export default function AttachmentList({ items, showUser, onOpen, emptyText }: {
   return (
     <ul className="rounded-2xl border border-stone-200 bg-white divide-y divide-stone-100 overflow-hidden" data-testid="attachments-list">
       {items.map((a) => (
-        <li key={a.id}>
+        <li key={a.id} className={`flex items-center ${selected?.has(a.id) ? "bg-orange-50" : ""}`}>
+          {onToggle && (
+            <label className="pl-4 md:pl-5 py-3.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="size-4 accent-orange-600 cursor-pointer"
+                checked={selected?.has(a.id) ?? false}
+                onChange={() => onToggle(a.id)}
+                aria-label={`Select ${a.file.filename}`}
+                data-testid={`attachment-select-${a.id}`}
+              />
+            </label>
+          )}
           <button
             type="button"
             onClick={() => onOpen(a.id)}
-            className={`w-full text-left px-4 md:px-5 py-3.5 grid grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-2 transition-colors duration-150 hover:bg-orange-50/60 ${
+            className={`flex-1 min-w-0 text-left px-4 md:px-5 py-3.5 grid grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-2 transition-colors duration-150 hover:bg-orange-50/60 ${
               a.unread ? "bg-amber-50/70" : ""
             }`}
             data-testid={`attachment-row-${a.id}`}
