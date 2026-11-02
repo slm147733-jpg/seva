@@ -1,6 +1,7 @@
 """User file submissions, remarks chat, receipts and status (not_started → seen → processing → generated)."""
 
 import io
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
@@ -8,13 +9,14 @@ from urllib.parse import quote
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from PIL import Image
 
 from lib.auth import current_user
 from lib.db import db
+from lib.whatsapp import queue_receipt_alert
 from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut
 
 router = APIRouter(tags=["attachments"])
@@ -191,6 +193,7 @@ async def open_attachment(attachment_id: str, user: dict = Depends(current_user)
 @router.post("/attachments/{attachment_id}/messages", response_model=MessageOut, status_code=201)
 async def post_message(
     attachment_id: str,
+    request: Request,
     text: str = Form(""),
     file: Optional[UploadFile] = File(None),
     user: dict = Depends(current_user),
@@ -234,6 +237,11 @@ async def post_message(
     if msg.is_receipt and not doc.get("generated_at"):
         changes["generated_at"] = now  # receipt upload freezes the timer
     await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
+    if msg.is_receipt:
+        owner = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
+        if owner:
+            app_url = request.headers.get("origin") or os.environ.get("APP_URL", "")
+            await queue_receipt_alert(owner, doc, app_url)
     return msg
 
 

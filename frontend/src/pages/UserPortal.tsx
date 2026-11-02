@@ -16,6 +16,7 @@ import type { Link, Ok, UserOut } from "@/lib/types";
 import UploadBar from "@/components/files/UploadBar";
 import AttachmentList from "@/components/files/AttachmentList";
 import AttachmentDetail from "@/components/files/AttachmentDetail";
+import StatusFilter, { applyStatusFilter, type StatusFilterValue } from "@/components/files/StatusFilter";
 import { useLiveAttachments } from "@/lib/live";
 
 function ProfileDialog({ user }: { user: UserOut }) {
@@ -103,6 +104,7 @@ export default function UserPortal() {
   const me = useMe();
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [fileFilter, setFileFilter] = useState<StatusFilterValue>("all");
   const live = useLiveAttachments(me.data?.role === "user" ? "user" : undefined);
   const files = live.data && !live.isError ? live.data.items : [];
   const links = useQuery({
@@ -159,12 +161,19 @@ export default function UserPortal() {
             </span>
           </div>
           <UploadBar />
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <StatusFilter items={files} value={fileFilter} onChange={setFileFilter} testPrefix="portal-files" />
+          </div>
+          <div className="mt-3">
             <AttachmentList
-              items={files}
+              items={applyStatusFilter(files, fileFilter)}
               showUser={false}
               onOpen={setOpenId}
-              emptyText="You haven't sent any files yet. Use the camera or attach PDF / images above."
+              emptyText={
+                fileFilter === "all"
+                  ? "You haven't sent any files yet. Use the camera or attach PDF / images above."
+                  : "No files with this status."
+              }
             />
           </div>
           {user && <AttachmentDetail id={openId} role="user" myId={user.id} onClose={() => setOpenId(null)} />}

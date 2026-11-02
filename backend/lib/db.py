@@ -49,6 +49,7 @@ INDEXES: dict[str, list[IndexModel]] = {
     "attachment_messages": [
         IndexModel([("attachment_id", ASCENDING), ("created_at", ASCENDING)], name="attachment_created"),
     ],
+    "whatsapp_alerts": [IndexModel([("created_at", DESCENDING)], name="created_desc")],
 }
 
 

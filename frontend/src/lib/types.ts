@@ -140,3 +140,40 @@ export interface AttachmentDetail {
   attachment: AttachmentOut;
   messages: MessageOut[];
 }
+
+// backend/models/report.py
+export interface DayRow {
+  date: string;
+  received: number;
+  seen: number;
+  generated: number;
+  avg_minutes: number | null;
+}
+
+export interface StatusCounts {
+  not_started: number;
+  seen: number;
+  processing: number;
+  generated: number;
+}
+
+export interface DailyReport {
+  today: string;
+  days: DayRow[];
+  current: StatusCounts;
+  total_received: number;
+  total_generated: number;
+  avg_minutes: number | null;
+}
+
+export interface WhatsAppAlert {
+  id: string;
+  user_id: string;
+  user_name: string;
+  mobile: string;
+  attachment_id: string;
+  message: string;
+  status: "not_connected" | "sent" | "failed";
+  detail: string;
+  created_at: string;
+}
