@@ -1,5 +1,6 @@
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
-import { BarChart3, ExternalLink, FileText, Inbox, LayoutDashboard, Link2, LogOut, Menu, Settings, Users } from "lucide-react";
+import { BarChart3, Briefcase, ExternalLink, FileText, Inbox, LayoutDashboard, Link2, LogOut, Menu, Settings, Users } from "lucide-react";
+import ServicesPanel from "@/components/admin/ServicesPanel";
 import ReportsPanel from "@/components/admin/ReportsPanel";
 import FilesPanel from "@/components/admin/FilesPanel";
 import { useLiveAttachments } from "@/lib/live";
@@ -18,6 +19,7 @@ const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "files", label: "User files", icon: Inbox },
   { id: "reports", label: "Daily report", icon: BarChart3 },
+  { id: "services", label: "Services", icon: Briefcase },
   { id: "users", label: "Users", icon: Users },
   { id: "pages", label: "Pages", icon: FileText },
   { id: "links", label: "Website links", icon: Link2 },
@@ -127,6 +129,7 @@ export default function AdminDashboard() {
           {tab === "overview" && <OverviewPanel adminName={admin?.name ?? ""} onNavigate={setTab} />}
           {tab === "files" && <FilesPanel adminId={admin?.id ?? ""} items={files} />}
           {tab === "reports" && <ReportsPanel />}
+          {tab === "services" && <ServicesPanel />}
           {tab === "users" && <UsersPanel currentAdminId={admin?.id ?? ""} />}
           {tab === "pages" && <PagesPanel />}
           {tab === "links" && <LinksPanel />}

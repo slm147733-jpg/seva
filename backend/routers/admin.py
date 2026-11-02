@@ -8,6 +8,7 @@ from pymongo.errors import DuplicateKeyError
 
 from lib.auth import hash_password, require_admin
 from lib.db import db
+from routers.services import valid_service_ids
 from models.content import Link, LinkIn, Page, PageIn, Settings
 from models.user import Ok, PasswordReset, Stats, UserCreate, UserOut, UserUpdate
 
@@ -32,6 +33,7 @@ async def create_user(body: UserCreate):
         "is_active": True,
         "created_at": datetime.now(timezone.utc),
         "last_login": None,
+        "service_ids": await valid_service_ids(body.service_ids),
     }
     try:
         await db.users.insert_one(doc)
@@ -55,6 +57,8 @@ async def update_user(user_id: str, body: UserUpdate, admin: dict = Depends(requ
         raise HTTPException(status_code=400, detail="You cannot demote or deactivate your own account")
     if "name" in changes:
         changes["name"] = changes["name"].strip()
+    if "service_ids" in changes:
+        changes["service_ids"] = await valid_service_ids(changes["service_ids"])
     if changes:
         try:
             await db.users.update_one({"id": user_id}, {"$set": changes})

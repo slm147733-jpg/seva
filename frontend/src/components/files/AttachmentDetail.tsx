@@ -135,7 +135,8 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
           <SheetDescription>
             {a && (
               <span>
-                {a.user_name} · <span className="font-mono">{a.user_mobile}</span> · sent {formatIST(a.created_at)}
+                <span className="font-semibold text-amber-800" data-testid="detail-service">{a.service_name}</span> · {a.user_name} ·{" "}
+                <span className="font-mono">{a.user_mobile}</span> · sent {formatIST(a.created_at)}
               </span>
             )}
           </SheetDescription>

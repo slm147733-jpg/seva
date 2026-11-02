@@ -37,6 +37,11 @@ Settings; pages about/services/contact; 4 links (3 audience both, "National Scho
 - User status filters: shared StatusFilter chips on /portal (testids portal-files-filter-*) and the admin User files tab (files-filter-*).
 - Admin deletes files: DELETE /api/attachments/{id} and POST /api/attachments/bulk-delete {ids} (admin only; users get 403). Removes the attachment, its messages, every GridFS file (original + thread files) and its whatsapp_alerts, so the report counts drop too. UI: row checkboxes + "Select all shown" + "Delete selected" (confirm dialog) on the User files tab; a trash icon in the file detail sheet.
 
+## Services (work types)
+- Admin "Services" tab (/admin?tab=services): CRUD services {id, name (unique, case-insensitive), description, is_active, created_at}; list shows user_count. API: GET/POST /api/admin/services, PUT/DELETE /api/admin/services/{id}. Deleting a service $pulls it from every user's service_ids; existing files keep their stored service_name.
+- Users have service_ids (admin ticks them in the Create/Edit user dialog; the Users table has a Services column). Ids are checked against existing services.
+- User picks a service (required) in UploadBar from GET /api/services/mine (assigned + active only). POST /attachments and /attachments/camera require form field service_id; the server checks it is assigned to the caller and active, otherwise 403 (or 422 if missing). Attachments store service_id + service_name (snapshot); older files show "General".
+
 ## API (all under /api)
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links
 public: GET site, GET pages/{slug}

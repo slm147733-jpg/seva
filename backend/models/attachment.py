@@ -18,6 +18,8 @@ class AttachmentOut(BaseModel):
     user_id: str
     user_name: str
     user_mobile: str
+    service_id: Optional[str] = None
+    service_name: str = "General"
     file: FileMeta
     status: Status
     created_at: datetime

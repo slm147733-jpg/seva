@@ -60,6 +60,12 @@ export default function AttachmentList({ items, showUser, onOpen, emptyText, sel
             <div className="min-w-0">
               <p className="font-medium truncate" data-testid={`attachment-name-${a.id}`}>
                 {a.file.filename}
+                <span
+                  className="ml-2 align-middle rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900"
+                  data-testid={`attachment-service-${a.id}`}
+                >
+                  {a.service_name}
+                </span>
               </p>
               <p className="text-xs text-stone-500 truncate">
                 {showUser && (

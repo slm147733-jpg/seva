@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { errorMessage, formatIST } from "@/lib/hooks";
-import type { Ok, Role, UserCreate, UserOut, UserUpdate } from "@/lib/types";
+import type { Ok, Role, Service, UserCreate, UserOut, UserUpdate } from "@/lib/types";
 import { ConfirmDelete, PanelHeader } from "./common";
 
 const ROLE_LABELS: Record<string, string> = { user: "User", admin: "Admin" };
@@ -26,12 +26,19 @@ function UserFormDialog({ mode, onClose }: { mode: Mode; onClose: () => void }) 
     mobile: editing?.mobile ?? "",
     password: "",
     role: (editing?.role ?? "user") as Role,
+    service_ids: editing?.service_ids ?? ([] as string[]),
   });
+  const services = useQuery({ queryKey: ["admin-services"], queryFn: () => apiGet<Service[]>("/admin/services") });
+  const toggleService = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      service_ids: f.service_ids.includes(id) ? f.service_ids.filter((s) => s !== id) : [...f.service_ids, id],
+    }));
 
   const save = useMutation({
     mutationFn: () => {
       if (editing) {
-        const body: UserUpdate = { name: form.name, mobile: form.mobile, role: form.role };
+        const body: UserUpdate = { name: form.name, mobile: form.mobile, role: form.role, service_ids: form.service_ids };
         return apiPut<UserOut>(`/admin/users/${editing.id}`, body);
       }
       const body: UserCreate = form;
@@ -39,6 +46,7 @@ function UserFormDialog({ mode, onClose }: { mode: Mode; onClose: () => void }) 
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-services"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
       toast.success(editing ? "User updated" : "User login created");
       onClose();
@@ -107,6 +115,32 @@ function UserFormDialog({ mode, onClose }: { mode: Mode; onClose: () => void }) 
               </SelectContent>
             </Select>
           </div>
+          {form.role === "user" && (
+            <div className="space-y-2" data-testid="user-form-services">
+              <Label>Services this user can choose</Label>
+              <div className="max-h-44 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100">
+                {(services.data ?? []).map((s) => (
+                  <label key={s.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-stone-50">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-orange-600"
+                      checked={form.service_ids.includes(s.id)}
+                      onChange={() => toggleService(s.id)}
+                      data-testid={`user-form-service-${s.id}`}
+                    />
+                    <span className="flex-1">{s.name}</span>
+                    {!s.is_active && <span className="text-xs text-stone-400">inactive</span>}
+                  </label>
+                ))}
+                {services.isSuccess && services.data.length === 0 && (
+                  <p className="px-3 py-3 text-sm text-stone-500" data-testid="user-form-no-services">
+                    No services yet — add them in the Services tab.
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-stone-500">{form.service_ids.length} selected · users can only upload for these services</p>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -177,6 +211,8 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
     qc.invalidateQueries({ queryKey: ["admin-users"] });
     qc.invalidateQueries({ queryKey: ["stats"] });
   };
+  const servicesQ = useQuery({ queryKey: ["admin-services"], queryFn: () => apiGet<Service[]>("/admin/services") });
+  const serviceNames: Record<string, string> = Object.fromEntries((servicesQ.data ?? []).map((s) => [s.id, s.name]));
 
   const toggle = useMutation({
     mutationFn: (u: UserOut) => apiPut<UserOut>(`/admin/users/${u.id}`, { is_active: !u.is_active }),
@@ -219,6 +255,7 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
               <TableHead>Name</TableHead>
               <TableHead>Mobile</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Services</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last sign-in</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -235,6 +272,17 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
                   <TableCell className="font-mono text-sm">{u.mobile}</TableCell>
                   <TableCell>
                     <Badge variant={u.role === "admin" ? "default" : "secondary"}>{ROLE_LABELS[u.role]}</Badge>
+                  </TableCell>
+                  <TableCell className="max-w-[220px]" data-testid={`user-services-${u.mobile}`}>
+                    {u.role === "admin" ? (
+                      <span className="text-xs text-stone-400">All (admin)</span>
+                    ) : u.service_ids.length === 0 ? (
+                      <span className="text-xs text-red-600">None assigned</span>
+                    ) : (
+                      <span className="text-xs text-stone-600 line-clamp-2">
+                        {u.service_ids.map((id) => serviceNames[id]).filter(Boolean).join(", ")}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <button
@@ -294,7 +342,7 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
             })}
             {!isLoading && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-stone-500" data-testid="users-empty">
+                <TableCell colSpan={7} className="py-10 text-center text-stone-500" data-testid="users-empty">
                   No users found.
                 </TableCell>
               </TableRow>

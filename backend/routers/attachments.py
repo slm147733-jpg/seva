@@ -17,6 +17,7 @@ from PIL import Image
 from lib.auth import current_user
 from lib.db import db
 from lib.whatsapp import queue_receipt_alert
+from routers.services import assignable_service
 from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult
 from lib.auth import require_admin
 
@@ -73,6 +74,8 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
     return AttachmentOut(
         **{k: doc[k] for k in ("id", "user_id", "user_name", "user_mobile", "file", "created_at",
                                "last_event_at", "last_event_role", "last_event_text", "message_count")},
+        service_id=doc.get("service_id"),
+        service_name=doc.get("service_name") or "General",
         status=status,
         seen_at=seen,
         processing_at=processing_at,
@@ -81,20 +84,22 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
     )
 
 
-async def _create_attachment(user: dict, meta: FileMeta) -> dict:
+async def _create_attachment(user: dict, meta: FileMeta, service: dict) -> dict:
     now = _now()
     doc = {
         "id": str(uuid.uuid4()),
         "user_id": user["id"],
         "user_name": user["name"],
         "user_mobile": user["mobile"],
+        "service_id": service["id"],
+        "service_name": service["name"],  # snapshot: stays readable if the service is renamed/deleted
         "file": meta.model_dump(),
         "created_at": now,
         "seen_at": None,
         "generated_at": None,
         "last_event_at": now,
         "last_event_role": "user",
-        "last_event_text": f"{user['name']} uploaded {meta.filename}",
+        "last_event_text": f"{user['name']} uploaded {meta.filename} for {service['name']}",
         "unread_admin": True,
         "unread_user": False,
         "message_count": 0,
@@ -122,16 +127,21 @@ async def list_attachments(user: dict = Depends(current_user)):
 
 
 @router.post("/attachments", response_model=list[AttachmentOut], status_code=201)
-async def upload_files(files: list[UploadFile] = File(...), user: dict = Depends(current_user)):
+async def upload_files(
+    files: list[UploadFile] = File(...),
+    service_id: str = Form(..., min_length=1),
+    user: dict = Depends(current_user),
+):
     if user["role"] == "admin":
         raise HTTPException(status_code=403, detail="Admins reply inside a user's attachment instead")
+    service = await assignable_service(user, service_id)
     if not files or len(files) > 20:
         raise HTTPException(status_code=400, detail="Attach between 1 and 20 files")
     validated = [await _read_valid(f) for f in files]  # validate all before storing any
     now = _now()
     out = []
     for data, name, ctype in validated:
-        doc = await _create_attachment(user, await _store(data, name, ctype, user["id"]))
+        doc = await _create_attachment(user, await _store(data, name, ctype, user["id"]), service)
         out.append(_to_out(doc, user["role"], now))
     return out
 
@@ -140,10 +150,12 @@ async def upload_files(files: list[UploadFile] = File(...), user: dict = Depends
 async def upload_camera(
     files: list[UploadFile] = File(...),
     mode: Literal["pdf", "images"] = Form("images"),
+    service_id: str = Form(..., min_length=1),
     user: dict = Depends(current_user),
 ):
     if user["role"] == "admin":
         raise HTTPException(status_code=403, detail="Admins reply inside a user's attachment instead")
+    service = await assignable_service(user, service_id)
     if not files or len(files) > 30:
         raise HTTPException(status_code=400, detail="Capture between 1 and 30 photos")
     validated = [await _read_valid(f) for f in files]
@@ -153,7 +165,7 @@ async def upload_camera(
         out = []
         for i, (data, _, ctype) in enumerate(validated, 1):
             meta = await _store(data, f"camera-{stamp}-{i}.jpg", ctype, user["id"])
-            out.append(_to_out(await _create_attachment(user, meta), user["role"], now))
+            out.append(_to_out(await _create_attachment(user, meta, service), user["role"], now))
         return out
     try:
         images = [Image.open(io.BytesIO(d)).convert("RGB") for d, _, _ in validated]
@@ -165,7 +177,7 @@ async def upload_camera(
     if len(pdf) > MAX_BYTES:
         raise HTTPException(status_code=400, detail="Combined PDF is larger than 10 MB — capture fewer pages")
     meta = await _store(pdf, f"camera-{stamp}.pdf", "application/pdf", user["id"])
-    return [_to_out(await _create_attachment(user, meta), user["role"], now)]
+    return [_to_out(await _create_attachment(user, meta, service), user["role"], now)]
 
 
 @router.get("/attachments/{attachment_id}", response_model=AttachmentDetail)

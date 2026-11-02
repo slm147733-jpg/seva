@@ -17,6 +17,7 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: Optional[datetime] = None
+    service_ids: list[str] = []
 
 
 class SetupStatus(BaseModel):
@@ -48,6 +49,7 @@ class UserCreate(BaseModel):
     mobile: str = Mobile
     password: str = Password
     role: Role = "user"
+    service_ids: list[str] = []
 
 
 class UserUpdate(BaseModel):
@@ -55,6 +57,7 @@ class UserUpdate(BaseModel):
     mobile: Optional[str] = Field(default=None, pattern=r"^[6-9]\d{9}$")
     role: Optional[Role] = None
     is_active: Optional[bool] = None
+    service_ids: Optional[list[str]] = None
 
 
 class PasswordReset(BaseModel):

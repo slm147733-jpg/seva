@@ -10,6 +10,7 @@ export interface UserOut {
   is_active: boolean;
   created_at: string;
   last_login: string | null;
+  service_ids: string[];
 }
 
 export interface SetupStatus {
@@ -21,6 +22,7 @@ export interface UserCreate {
   mobile: string;
   password: string;
   role: Role;
+  service_ids: string[];
 }
 
 export interface UserUpdate {
@@ -28,6 +30,20 @@ export interface UserUpdate {
   mobile?: string;
   role?: Role;
   is_active?: boolean;
+  service_ids?: string[];
+}
+
+// backend/models/service.py
+export interface ServiceIn {
+  name: string;
+  description: string;
+  is_active: boolean;
+}
+
+export interface Service extends ServiceIn {
+  id: string;
+  created_at: string;
+  user_count: number;
 }
 
 export interface Stats {
@@ -105,6 +121,8 @@ export interface AttachmentOut {
   user_id: string;
   user_name: string;
   user_mobile: string;
+  service_id: string | null;
+  service_name: string;
   file: FileMeta;
   status: FileStatus;
   created_at: string;

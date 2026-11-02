@@ -36,7 +36,7 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const shown = applyStatusFilter(items, filter).filter((a) =>
-    `${a.user_name} ${a.user_mobile} ${a.file.filename}`.toLowerCase().includes(q.toLowerCase()),
+    `${a.user_name} ${a.user_mobile} ${a.file.filename} ${a.service_name}`.toLowerCase().includes(q.toLowerCase()),
   );
   // Only count selections that still exist (live feed may have removed some).
   const liveSelected = items.filter((a) => selected.has(a.id)).map((a) => a.id);
