@@ -38,6 +38,8 @@ export interface ServiceIn {
   name: string;
   description: string;
   is_active: boolean;
+  fee: number;
+  required_documents: string[];
 }
 
 export interface Service extends ServiceIn {
@@ -123,6 +125,7 @@ export interface AttachmentOut {
   user_mobile: string;
   service_id: string | null;
   service_name: string;
+  service_fee: number | null;
   file: FileMeta;
   status: FileStatus;
   created_at: string;

@@ -5,7 +5,8 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
 import { formatIST } from "@/lib/hooks";
-import type { DailyReport, WhatsAppAlert } from "@/lib/types";
+import type { DailyReport, Service, WhatsAppAlert } from "@/lib/types";
+import ServiceSelect from "@/components/files/ServiceSelect";
 import { PanelHeader } from "./common";
 
 const RANGES = [7, 14, 30];
@@ -27,9 +28,12 @@ const ALERT_STATUS: Record<WhatsAppAlert["status"], { label: string; cls: string
 
 export default function ReportsPanel() {
   const [days, setDays] = useState(14);
+  const [serviceId, setServiceId] = useState("");
+  const servicesQ = useQuery({ queryKey: ["admin-services"], queryFn: () => apiGet<Service[]>("/admin/services") });
   const report = useQuery({
-    queryKey: ["daily-report", days],
-    queryFn: () => apiGet<DailyReport>(`/admin/reports/daily?days=${days}`),
+    queryKey: ["daily-report", days, serviceId],
+    queryFn: () =>
+      apiGet<DailyReport>(`/admin/reports/daily?days=${days}${serviceId ? `&service_id=${encodeURIComponent(serviceId)}` : ""}`),
     refetchInterval: 30000,
   });
   const alerts = useQuery({ queryKey: ["whatsapp-alerts"], queryFn: () => apiGet<WhatsAppAlert[]>("/admin/whatsapp-alerts") });
@@ -50,6 +54,13 @@ export default function ReportsPanel() {
         title="Daily work report"
         subtitle="Files received, opened and finished each day (India time), with the average time taken per receipt."
         action={
+          <div className="flex flex-col sm:flex-row gap-2">
+          <ServiceSelect
+            value={serviceId}
+            onChange={setServiceId}
+            options={(servicesQ.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+            testId="report-service-filter"
+          />
           <div className="flex gap-1 rounded-full bg-white border border-stone-200 p-1" data-testid="report-range">
             {RANGES.map((n) => (
               <button
@@ -64,6 +75,7 @@ export default function ReportsPanel() {
                 {n} days
               </button>
             ))}
+          </div>
           </div>
         }
       />

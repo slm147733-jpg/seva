@@ -76,6 +76,7 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
                                "last_event_at", "last_event_role", "last_event_text", "message_count")},
         service_id=doc.get("service_id"),
         service_name=doc.get("service_name") or "General",
+        service_fee=doc.get("service_fee"),
         status=status,
         seen_at=seen,
         processing_at=processing_at,
@@ -93,6 +94,7 @@ async def _create_attachment(user: dict, meta: FileMeta, service: dict) -> dict:
         "user_mobile": user["mobile"],
         "service_id": service["id"],
         "service_name": service["name"],  # snapshot: stays readable if the service is renamed/deleted
+        "service_fee": service.get("fee", 0),
         "file": meta.model_dump(),
         "created_at": now,
         "seen_at": None,

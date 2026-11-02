@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Paperclip, UploadCloud } from "lucide-react";
+import { Camera, CheckCircle2, Paperclip, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CameraCapture from "./CameraCapture";
 import { apiGet, apiUpload } from "@/lib/api";
-import { errorMessage } from "@/lib/hooks";
+import { errorMessage, formatINR } from "@/lib/hooks";
 import { ACCEPT, playChime, validateFiles } from "@/lib/live";
 import type { AttachmentOut, Service } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export default function UploadBar() {
   // Auto-pick when there's only one; drop a pick the admin has since removed.
   const serviceId = services.some((s) => s.id === picked) ? picked : services.length === 1 ? services[0].id : "";
   const serviceName = services.find((s) => s.id === serviceId)?.name;
+  const selectedService = services.find((s) => s.id === serviceId);
   const noServices = servicesQ.isSuccess && services.length === 0;
 
   const done = (items: AttachmentOut[]) => {
@@ -111,13 +112,44 @@ export default function UploadBar() {
             <SelectContent>
               {services.map((s) => (
                 <SelectItem key={s.id} value={s.id} data-testid={`upload-service-option-${s.id}`}>
-                  {s.name}
+                  {s.name} · {formatINR(s.fee)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
+
+      {selectedService && (
+        <div
+          className="grid gap-4 sm:grid-cols-[auto_1fr] rounded-xl border border-amber-200 bg-amber-50/70 p-4 animate-rise"
+          data-testid="upload-service-info"
+        >
+          <div className="sm:pr-5 sm:border-r border-amber-200">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Service fee</p>
+            <p className="mt-1 font-mono text-2xl font-bold text-stone-900" data-testid="upload-service-fee">
+              {formatINR(selectedService.fee)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">Documents needed</p>
+            {selectedService.required_documents.length > 0 ? (
+              <ul className="mt-2 grid gap-1.5 sm:grid-cols-2" data-testid="upload-required-docs">
+                {selectedService.required_documents.map((d, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-stone-800">
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-orange-600" /> {d}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-stone-600" data-testid="upload-no-required-docs">
+                No specific documents listed — attach whatever applies.
+              </p>
+            )}
+            {selectedService.description && <p className="mt-2 text-xs text-stone-600">{selectedService.description}</p>}
+          </div>
+        </div>
+      )}
 
       {noServices ? (
         <p className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900" data-testid="upload-no-services">

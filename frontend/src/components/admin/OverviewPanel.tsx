@@ -1,13 +1,27 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Link2, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
+import { ArrowRight, FileText, Link2, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import AttachmentList from "@/components/files/AttachmentList";
+import AttachmentDetail from "@/components/files/AttachmentDetail";
+import StatusFilter, { applyStatusFilter, type StatusFilterValue } from "@/components/files/StatusFilter";
+import type { AttachmentOut } from "@/lib/types";
 import { apiGet } from "@/lib/api";
 import { formatIST } from "@/lib/hooks";
 import type { Stats } from "@/lib/types";
 import { PanelHeader } from "./common";
 
-export default function OverviewPanel({ adminName, onNavigate }: { adminName: string; onNavigate: (tab: string) => void }) {
+export default function OverviewPanel({ adminName, adminId, files, onNavigate }: {
+  adminName: string;
+  adminId: string;
+  files: AttachmentOut[];
+  onNavigate: (tab: string) => void;
+}) {
   const { data, isError } = useQuery({ queryKey: ["stats"], queryFn: () => apiGet<Stats>("/admin/stats") });
   const s = data && !isError ? data : null;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [fileFilter, setFileFilter] = useState<StatusFilterValue>("all");
+  const recent = applyStatusFilter(files, fileFilter).slice(0, 8);
 
   const cards = [
     { key: "total", label: "Total accounts", value: s?.total_users, icon: Users, tab: "users", big: true },
@@ -21,6 +35,23 @@ export default function OverviewPanel({ adminName, onNavigate }: { adminName: st
   return (
     <div>
       <PanelHeader title={`Namaste, ${adminName}`} subtitle="Here's what's happening across your website today." />
+
+      <section className="mb-8" data-testid="overview-files">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-3">
+          <div>
+            <h2 className="font-heading text-xl font-bold">User files</h2>
+            <p className="text-sm text-stone-500">Latest uploads, updated live. Click one to open it.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => onNavigate("files")} data-testid="overview-view-all-files">
+            View all files ({files.length}) <ArrowRight className="size-4" />
+          </Button>
+        </div>
+        <div className="mb-3">
+          <StatusFilter items={files} value={fileFilter} onChange={setFileFilter} testPrefix="overview-files" />
+        </div>
+        <AttachmentList items={recent} showUser onOpen={setOpenId} emptyText="No files with this status yet." />
+        <AttachmentDetail id={openId} role="admin" myId={adminId} onClose={() => setOpenId(null)} />
+      </section>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {cards.map((c, i) => (
           <button

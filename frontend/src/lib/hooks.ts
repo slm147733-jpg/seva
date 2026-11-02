@@ -63,3 +63,8 @@ export function normalizeUrl(url: string): string {
   if (/^(https?:|mailto:|tel:|\/)/i.test(url)) return url;
   return `https://${url}`;
 }
+
+export function formatINR(amount: number | null | undefined): string {
+  if (!amount) return "Free";
+  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import { errorMessage } from "@/lib/hooks";
+import { errorMessage, formatINR } from "@/lib/hooks";
+import { Textarea } from "@/components/ui/textarea";
 import type { Ok, Service, ServiceIn } from "@/lib/types";
 import { ConfirmDelete, PanelHeader } from "./common";
 
@@ -24,10 +25,15 @@ function ServiceDialog({ service, onClose }: { service: Service | null; onClose:
     name: service?.name ?? "",
     description: service?.description ?? "",
     is_active: service?.is_active ?? true,
+    fee: service?.fee ?? 0,
+    required_documents: service?.required_documents ?? [],
   });
+  const [docsText, setDocsText] = useState((service?.required_documents ?? []).join("\n"));
   const save = useMutation({
-    mutationFn: () =>
-      service ? apiPut<Service>(`/admin/services/${service.id}`, form) : apiPost<Service>("/admin/services", form),
+    mutationFn: () => {
+      const body: ServiceIn = { ...form, required_documents: docsText.split("\n").map((d) => d.trim()).filter(Boolean) };
+      return service ? apiPut<Service>(`/admin/services/${service.id}`, body) : apiPost<Service>("/admin/services", body);
+    },
     onSuccess: () => {
       refresh(qc);
       toast.success(service ? "Service updated" : "Service added");
@@ -70,6 +76,34 @@ function ServiceDialog({ service, onClose }: { service: Service | null; onClose:
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               data-testid="service-form-description-input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sv-fee">Service fee (₹)</Label>
+            <div className="flex">
+              <span className="inline-flex items-center rounded-l-lg border border-r-0 border-input bg-muted px-3 text-sm text-stone-600">₹</span>
+              <Input
+                id="sv-fee"
+                type="number"
+                min={0}
+                step="1"
+                className="rounded-l-none"
+                value={form.fee}
+                onChange={(e) => setForm({ ...form, fee: Math.max(0, Number(e.target.value) || 0) })}
+                data-testid="service-form-fee-input"
+              />
+            </div>
+            <p className="text-xs text-stone-500">Use 0 for a free service. Users see this amount when they pick the service.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sv-docs">Required documents (one per line)</Label>
+            <Textarea
+              id="sv-docs"
+              rows={4}
+              placeholder={"Aadhaar card\nPassport size photo\nAddress proof"}
+              value={docsText}
+              onChange={(e) => setDocsText(e.target.value)}
+              data-testid="service-form-documents-input"
             />
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -116,6 +150,8 @@ export default function ServicesPanel() {
           <TableHeader>
             <TableRow className="bg-stone-50">
               <TableHead>Service</TableHead>
+              <TableHead>Fee</TableHead>
+              <TableHead>Documents</TableHead>
               <TableHead>Users</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -127,6 +163,14 @@ export default function ServicesPanel() {
                 <TableCell className="py-2.5">
                   <p className="font-medium" data-testid={`service-name-${s.id}`}>{s.name}</p>
                   {s.description && <p className="text-xs text-stone-500">{s.description}</p>}
+                </TableCell>
+                <TableCell className="font-mono text-sm" data-testid={`service-fee-${s.id}`}>{formatINR(s.fee)}</TableCell>
+                <TableCell className="max-w-[240px]" data-testid={`service-docs-${s.id}`}>
+                  {s.required_documents.length === 0 ? (
+                    <span className="text-xs text-stone-400">None listed</span>
+                  ) : (
+                    <span className="text-xs text-stone-600 line-clamp-2">{s.required_documents.join(", ")}</span>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono text-sm" data-testid={`service-users-${s.id}`}>{s.user_count}</TableCell>
                 <TableCell>
@@ -160,7 +204,7 @@ export default function ServicesPanel() {
             ))}
             {!isLoading && services.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-stone-500" data-testid="services-empty">
+                <TableCell colSpan={6} className="py-10 text-center text-stone-500" data-testid="services-empty">
                   No services yet. Add your first one (e.g. "Aadhaar update").
                 </TableCell>
               </TableRow>

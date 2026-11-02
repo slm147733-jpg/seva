@@ -15,12 +15,13 @@ import {
 import AttachmentList from "@/components/files/AttachmentList";
 import AttachmentDetail from "@/components/files/AttachmentDetail";
 import StatusFilter, { applyStatusFilter, type StatusFilterValue } from "@/components/files/StatusFilter";
+import ServiceSelect from "@/components/files/ServiceSelect";
 import { apiPost } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import type { AttachmentOut, DeleteResult } from "@/lib/types";
 import { PanelHeader } from "./common";
 
-export function invalidateFileQueries(qc: ReturnType<typeof useQueryClient>) {
+function invalidateFileQueries(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["attachments"] });
   qc.invalidateQueries({ queryKey: ["daily-report"] });
   qc.invalidateQueries({ queryKey: ["whatsapp-alerts"] });
@@ -34,8 +35,11 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
   const [openId, setOpenId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [service, setService] = useState("");
+  const serviceOptions = [...new Set(items.map((a) => a.service_name))].sort().map((n) => ({ value: n, label: n }));
+  const byService = service ? items.filter((a) => a.service_name === service) : items;
 
-  const shown = applyStatusFilter(items, filter).filter((a) =>
+  const shown = applyStatusFilter(byService, filter).filter((a) =>
     `${a.user_name} ${a.user_mobile} ${a.file.filename} ${a.service_name}`.toLowerCase().includes(q.toLowerCase()),
   );
   // Only count selections that still exist (live feed may have removed some).
@@ -74,7 +78,9 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
         subtitle="Open a file to mark it Seen. After a minute it moves to Processing and the timer starts. Attach the receipt to mark it Generated."
       />
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
-        <StatusFilter items={items} value={filter} onChange={setFilter} testPrefix="files" />
+        <StatusFilter items={byService} value={filter} onChange={setFilter} testPrefix="files" />
+        <div className="flex flex-col sm:flex-row gap-2 lg:w-auto">
+          <ServiceSelect value={service} onChange={setService} options={serviceOptions} testId="files-service-filter" />
         <div className="relative lg:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400" />
           <Input
@@ -84,6 +90,7 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
             onChange={(e) => setQ(e.target.value)}
             data-testid="files-search-input"
           />
+        </div>
         </div>
       </div>
 

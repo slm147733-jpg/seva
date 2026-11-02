@@ -126,7 +126,9 @@ export default function AdminDashboard() {
 
       <main className="px-4 md:px-8 py-8 max-w-6xl" key={tab}>
         <div className="animate-rise">
-          {tab === "overview" && <OverviewPanel adminName={admin?.name ?? ""} onNavigate={setTab} />}
+          {tab === "overview" && (
+            <OverviewPanel adminName={admin?.name ?? ""} adminId={admin?.id ?? ""} files={files} onNavigate={setTab} />
+          )}
           {tab === "files" && <FilesPanel adminId={admin?.id ?? ""} items={files} />}
           {tab === "reports" && <ReportsPanel />}
           {tab === "services" && <ServicesPanel />}

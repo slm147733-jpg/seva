@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { apiDelete, apiGet, apiUpload, fileUrl } from "@/lib/api";
-import { errorMessage, formatIST } from "@/lib/hooks";
+import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import { ACCEPT, POLL_MS, formatBytes, playChime, syncServerTime, validateFiles } from "@/lib/live";
 import type { AttachmentDetail as Detail, DeleteResult, FileMeta, MessageOut, Role } from "@/lib/types";
 import { FileIcon } from "./AttachmentList";
@@ -135,7 +135,11 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
           <SheetDescription>
             {a && (
               <span>
-                <span className="font-semibold text-amber-800" data-testid="detail-service">{a.service_name}</span> · {a.user_name} ·{" "}
+                <span className="font-semibold text-amber-800" data-testid="detail-service">{a.service_name}</span>
+                {a.service_fee !== null && (
+                  <span className="ml-1 font-mono text-xs text-stone-600" data-testid="detail-fee">({formatINR(a.service_fee)})</span>
+                )}{" "}
+                · {a.user_name} ·{" "}
                 <span className="font-mono">{a.user_mobile}</span> · sent {formatIST(a.created_at)}
               </span>
             )}
