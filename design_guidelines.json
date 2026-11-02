@@ -1,0 +1,184 @@
+{
+  "project_name": "Sevakendra Live Website & Management Portal",
+  "app_type": "hybrid_fullstack",
+  "brand": {
+    "name": "Sevakendra",
+    "concept": "Empowering citizen services, team productivity, and direct community portal management through a lightning-fast live CMS & admin command center.",
+    "core_aesthetic": "Energetic Swiss High-Contrast meets Warm Indian Tech Modernism — vibrant saffron orange (#EA580C / #F97316) and amber yellow (#EAB308 / #FBBF24) accents balanced with crisp obsidian carbon and warm alabaster stone surfaces."
+  },
+  "typography": {
+    "font_family_heading": "Plus Jakarta Sans",
+    "font_family_body": "DM Sans",
+    "font_family_mono": "JetBrains Mono",
+    "fontsource_imports": [
+      "@fontsource-variable/plus-jakarta-sans",
+      "@fontsource-variable/dm-sans",
+      "@fontsource-variable/jetbrains-mono"
+    ],
+    "scale_px": {
+      "display": 56,
+      "h1": 44,
+      "h2": 32,
+      "h3": 22,
+      "body": 16,
+      "caption": 14
+    },
+    "rules": {
+      "display": "font-extrabold tracking-tight leading-none text-slate-900 dark:text-slate-50",
+      "h1": "font-bold tracking-tight text-slate-900 dark:text-slate-100",
+      "h2": "font-bold tracking-tight text-slate-800 dark:text-slate-200",
+      "h3": "font-semibold tracking-normal text-slate-800 dark:text-slate-200",
+      "body": "font-normal leading-relaxed text-slate-700 dark:text-slate-300",
+      "caption": "font-medium text-xs tracking-wider uppercase text-slate-500 dark:text-slate-400"
+    }
+  },
+  "colors": {
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#FAFAF9",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E",
+        "roles": {
+          "link": "#C2410C",
+          "error": "#B91C1C",
+          "success": "#15803D",
+          "warning": "#A16207"
+        }
+      },
+      {
+        "name": "panel",
+        "kind": "solid",
+        "bg": "#FFFFFF",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#57534E",
+        "roles": {
+          "border": "#E7E5E4",
+          "highlight": "#FFFBEB"
+        }
+      },
+      {
+        "name": "sidebar_dark",
+        "kind": "solid",
+        "bg": "#0C0A09",
+        "on_bg": "#F5F5F4",
+        "on_bg_muted": "#A8A29E",
+        "roles": {
+          "active_tab": "#EA580C",
+          "hover_tab": "#1C1917"
+        }
+      },
+      {
+        "name": "hero",
+        "kind": "gradient",
+        "contrast_against": "#1C1917",
+        "guarantee": "scrim: linear-gradient(135deg, rgba(254,243,199,0.7) 0%, rgba(255,237,213,0.85) 100%)",
+        "on_bg": "#1C1917",
+        "on_bg_muted": "#44403C",
+        "roles": {
+          "badge_bg": "#EA580C",
+          "badge_text": "#FFFFFF"
+        }
+      },
+      {
+        "name": "brand_banner",
+        "kind": "solid",
+        "bg": "#EA580C",
+        "on_bg": "#FFFFFF",
+        "on_bg_muted": "#FED7AA"
+      },
+      {
+        "name": "user_welcome_card",
+        "kind": "solid",
+        "bg": "#FEF3C7",
+        "on_bg": "#78350F",
+        "on_bg_muted": "#92400E"
+      }
+    ],
+    "accent": "#EA580C",
+    "on_accent": "#FFFFFF",
+    "accent_secondary": "#EAB308",
+    "on_accent_secondary": "#1C1917",
+    "accent_gradient": "bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500"
+  },
+  "entry_surfaces": {
+    "/": "split hero — brand tagline + primary quick service access left, live CMS dynamic page preview & verified stats right",
+    "/login": "single branded mobile-first auth panel — phone + password credential form, role detection badge, instant admin/user routing",
+    "/admin/setup": "high-trust initial first-admin initialization card — single-time setup badge, 10-digit mobile number, admin name, strong password creation",
+    "/user/dashboard": "warm user welcome portal — personalized profile header, interactive link cards grid, notice board, and quick service search",
+    "/admin/dashboard": "dense management command center — overview analytics metrics, real-time user management table, dynamic CMS page builder, quick links organizer, site settings panel"
+  },
+  "layouts_and_grids": {
+    "public_site": {
+      "header": "Sticky glassmorphism header (backdrop-blur-md bg-white/85 dark:bg-stone-900/85 border-b border-stone-200/80 px-4 md:px-8 py-3.5) with Brand Logo, Dynamic Admin-Created Navigation Pages, Quick Links dropdown, and 'Login / Access Portal' CTA.",
+      "hero_section": "Asymmetric Bento Hero (grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center pt-8 pb-12): Left col-span-7 with dynamic headline, subtitle, quick search, and CTA; Right col-span-5 with interactive status card & live team preview.",
+      "quick_links_grid": "Bento Cards Grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5) with tactile hover states, category pill badges, and direct external/internal click-through.",
+      "dynamic_pages_renderer": "Route /p/:slug rendering clean markdown/HTML formatted pages with breadcrumbs, last-modified timestamp, print/share tool, and sidebar of related links."
+    },
+    "admin_dashboard": {
+      "structure": "Fixed/collapsible responsive Sidebar (w-64 bg-stone-950 text-stone-100 flex flex-col justify-between) + Main Content Area with top utility bar (Role chip, Search, Logout, Quick View Public Site).",
+      "sidebar_tabs": [
+        {"id": "overview", "label": "Overview & Stats", "icon": "LayoutDashboard"},
+        {"id": "users", "label": "User Management", "icon": "Users"},
+        {"id": "pages", "label": "Pages (CMS)", "icon": "FileText"},
+        {"id": "links", "label": "Quick Links", "icon": "Link2"},
+        {"id": "settings", "label": "Site Settings", "icon": "Settings"}
+      ],
+      "density": "High Density Mode B: Compact table rows (py-2.5), inline action badges, quick search & filter bar, modal dialogs for create/edit/reset-password actions."
+    },
+    "user_portal": {
+      "structure": "Clean card-oriented dashboard with warm greeting (e.g. 'Namaste, {name}'), user mobile number badge, active quick links grid with search, and personal profile update modal."
+    }
+  },
+  "key_features_to_implement": [
+    "First-Admin One-Time Setup: Automatic detection if no admin exists; prompts /admin/setup with Name, 10-digit Indian Mobile Number (+91 format ready), Password.",
+    "Unified Authentication: Single /login page accepting Mobile + Password, validates session cookies via httpOnly, dynamically redirects to /admin/dashboard or /user/dashboard.",
+    "User Management System: Admin can create new user logins (Mobile, Name, Password, Role: user, Status: active/inactive), edit details, toggle active status, reset password, and delete accounts with confirmation dialog.",
+    "CMS Dynamic Pages Manager: Admin can create/edit/delete public pages (Title, Slug, Excerpt, Content/Body, Show in Navigation Bar Toggle, Display Order).",
+    "Public Navigation Integration: Public header dynamically queries and renders pages that have `show_in_nav: true` sorted by `order`.",
+    "Quick Links Manager: Admin can add/edit/delete external/internal links with Title, URL, Category/Description, Icon, and Visibility toggle.",
+    "Live Site Settings: Admin can configure Site Name, Tagline, Hero Title, Contact Helpline / WhatsApp Number, Support Email, and Announcement Banner.",
+    "Indian Mobile & Locale Support: Phone validation for 10-digit Indian numbers (e.g., 9876543210), IST timestamps format (DD MMM YYYY, hh:mm A), Rupee symbol where applicable."
+  ],
+  "motion": {
+    "engine": "motion/react (bundled)",
+    "micro_interactions": {
+      "card_hover": "hover:-translate-y-1 hover:shadow-md transition-all duration-200",
+      "button_press": "active:scale-[0.98] transition-transform duration-100",
+      "page_transition": "initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.25 }"
+    },
+    "accessibility_reduced_motion": "All motion hooks wrapped with prefers-reduced-motion fallback (instant opacity toggle instead of slide)."
+  },
+  "accessibility": {
+    "contrast_check": "All text tokens pass WCAG AA (minimum 4.5:1 on body, 3:1 on large headings).",
+    "touch_targets": "Mobile-friendly touch targets with minimum 44px x 44px for buttons, inputs, and tab triggers.",
+    "data_testids": "Strict data-testid usage across all interactive controls (e.g. data-testid='login-mobile-input', data-testid='admin-create-user-btn', etc.)"
+  },
+  "image_urls": {
+    "hero_team_banner": {
+      "url": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHxkaWdpdGFsJTIwd29ya3NwYWNlJTIwb2ZmaWNlJTIwdGVhbXxlbnwwfHx8fDE3OTM2Mzg4NDh8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Collaborative digital team working together on laptops",
+      "category": "marketing_hero"
+    },
+    "service_center_building": {
+      "url": "https://images.unsplash.com/photo-1594233666755-d1cb282abd25?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxpbmRpYSUyMG1vZGVybiUyMG9mZmljZSUyMGJ1aWxkaW5nfGVufDB8fHx8MTc5MzYzODg0OXww&ixlib=rb-4.1.0&q=85",
+      "description": "Modern digital service center corporate glass facade",
+      "category": "public_portal_about"
+    },
+    "team_collaboration": {
+      "url": "https://images.unsplash.com/photo-1603201667141-5a2d4c673378?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwyfHxkaWdpdGFsJTIwd29ya3NwYWNlJTIwb2ZmaWNlJTIwdGVhbXxlbnwwfHx8fDE3OTM2Mzg4NDh8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Team members in an energetic planning session",
+      "category": "services_feature"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Template is farm-ts: FastAPI backend (`backend/`) + Vite/React 19 frontend (`frontend/src`).",
+    "Configure `@fontsource-variable/plus-jakarta-sans`, `@fontsource-variable/dm-sans`, and `@fontsource-variable/jetbrains-mono` in `frontend/src/index.css`.",
+    "Implement seed data in `backend/seed.py` with initial default site settings, default public pages (e.g. 'About Sevakendra', 'Citizen Services', 'Help & FAQs'), and sample quick links.",
+    "Implement auth logic in `backend/routers/auth.py` and manage session with httpOnly cookie token verification or session endpoint `/api/auth/me`.",
+    "Ensure one-time first admin registration at `/api/auth/setup` which is disabled immediately once an admin user exists.",
+    "Provide comprehensive data-testid tags on all forms, inputs, tables, buttons, and navigation links.",
+    "Include responsive mobile navigation menu drawer (Sheet component) for seamless mobile browser browsing."
+  ]
+}

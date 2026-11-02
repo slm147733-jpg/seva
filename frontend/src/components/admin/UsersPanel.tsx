@@ -1,0 +1,311 @@
+import { useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { KeyRound, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
+import { errorMessage, formatIST } from "@/lib/hooks";
+import type { Ok, Role, UserCreate, UserOut, UserUpdate } from "@/lib/types";
+import { ConfirmDelete, PanelHeader } from "./common";
+
+const ROLE_LABELS: Record<string, string> = { user: "User", admin: "Admin" };
+
+type Mode = { kind: "create" } | { kind: "edit"; user: UserOut } | { kind: "reset"; user: UserOut } | null;
+
+function UserFormDialog({ mode, onClose }: { mode: Mode; onClose: () => void }) {
+  const qc = useQueryClient();
+  const editing = mode?.kind === "edit" ? mode.user : null;
+  const [form, setForm] = useState({
+    name: editing?.name ?? "",
+    mobile: editing?.mobile ?? "",
+    password: "",
+    role: (editing?.role ?? "user") as Role,
+  });
+
+  const save = useMutation({
+    mutationFn: () => {
+      if (editing) {
+        const body: UserUpdate = { name: form.name, mobile: form.mobile, role: form.role };
+        return apiPut<UserOut>(`/admin/users/${editing.id}`, body);
+      }
+      const body: UserCreate = form;
+      return apiPost<UserOut>("/admin/users", body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      toast.success(editing ? "User updated" : "User login created");
+      onClose();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    save.mutate();
+  };
+
+  return (
+    <Dialog open={mode?.kind === "create" || mode?.kind === "edit"} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit user" : "Create user login"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4" data-testid="user-form">
+          <div className="space-y-2">
+            <Label htmlFor="u-name">Name</Label>
+            <Input
+              id="u-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              data-testid="user-form-name-input"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="u-mobile">Mobile number</Label>
+            <Input
+              id="u-mobile"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="10-digit mobile"
+              value={form.mobile}
+              onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, "") })}
+              required
+              data-testid="user-form-mobile-input"
+            />
+          </div>
+          {!editing && (
+            <div className="space-y-2">
+              <Label htmlFor="u-pass">Password</Label>
+              <Input
+                id="u-pass"
+                type="text"
+                placeholder="Min 6 characters"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+                data-testid="user-form-password-input"
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select value={form.role} onValueChange={(v: string) => setForm({ ...form, role: v as Role })}>
+              <SelectTrigger className="w-full" data-testid="user-form-role-select">
+                <SelectValue>{(v) => ROLE_LABELS[v as string]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user" data-testid="role-option-user">User</SelectItem>
+                <SelectItem value="admin" data-testid="role-option-admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={save.isPending} data-testid="user-form-submit-button">
+              {editing ? "Save changes" : "Create login"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ResetPasswordDialog({ mode, onClose }: { mode: Mode; onClose: () => void }) {
+  const user = mode?.kind === "reset" ? mode.user : null;
+  const [pw, setPw] = useState("");
+  const reset = useMutation({
+    mutationFn: () => apiPost<Ok>(`/admin/users/${user?.id}/reset-password`, { new_password: pw }),
+    onSuccess: () => {
+      toast.success(`Password reset for ${user?.name}`);
+      onClose();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  return (
+    <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reset password — {user?.name}</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            reset.mutate();
+          }}
+        >
+          <Input
+            type="text"
+            placeholder="New password (min 6 characters)"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+            data-testid="reset-password-input"
+          />
+          <p className="text-xs text-stone-500">The user will be signed out of all devices.</p>
+          <DialogFooter>
+            <Button type="submit" disabled={reset.isPending} data-testid="reset-password-submit-button">
+              Reset password
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function UsersPanel({ currentAdminId }: { currentAdminId: string }) {
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<Mode>(null);
+  const [q, setQ] = useState("");
+  const { data, isError, isLoading } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: () => apiGet<UserOut[]>("/admin/users"),
+  });
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["admin-users"] });
+    qc.invalidateQueries({ queryKey: ["stats"] });
+  };
+
+  const toggle = useMutation({
+    mutationFn: (u: UserOut) => apiPut<UserOut>(`/admin/users/${u.id}`, { is_active: !u.is_active }),
+    onSuccess: (u) => {
+      refresh();
+      toast.success(`${u.name} ${u.is_active ? "activated" : "deactivated"}`);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const users = (data && !isError ? data : []).filter((u) =>
+    `${u.name} ${u.mobile}`.toLowerCase().includes(q.toLowerCase()),
+  );
+
+  return (
+    <div>
+      <PanelHeader
+        title="User management"
+        subtitle="Create logins with mobile & password, edit details, reset passwords or turn accounts on/off."
+        action={
+          <Button onClick={() => setMode({ kind: "create" })} className="h-10" data-testid="admin-create-user-button">
+            <Plus className="size-4" /> Create user login
+          </Button>
+        }
+      />
+      <div className="relative mb-4 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400" />
+        <Input
+          placeholder="Search name or mobile"
+          className="pl-9"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          data-testid="users-search-input"
+        />
+      </div>
+      <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
+        <Table data-testid="users-table">
+          <TableHeader>
+            <TableRow className="bg-stone-50">
+              <TableHead>Name</TableHead>
+              <TableHead>Mobile</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last sign-in</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((u) => {
+              const self = u.id === currentAdminId;
+              return (
+                <TableRow key={u.id} data-testid={`user-row-${u.mobile}`}>
+                  <TableCell className="font-medium py-2.5">
+                    {u.name} {self && <span className="text-xs text-stone-400">(you)</span>}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">{u.mobile}</TableCell>
+                  <TableCell>
+                    <Badge variant={u.role === "admin" ? "default" : "secondary"}>{ROLE_LABELS[u.role]}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      disabled={self || toggle.isPending}
+                      onClick={() => toggle.mutate(u)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-200 disabled:opacity-60 ${
+                        u.is_active ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-stone-200 text-stone-600 hover:bg-stone-300"
+                      }`}
+                      data-testid={`user-toggle-${u.mobile}`}
+                      title={self ? "You cannot deactivate yourself" : "Click to toggle"}
+                    >
+                      <span className={`size-1.5 rounded-full ${u.is_active ? "bg-green-600" : "bg-stone-500"}`} />
+                      {u.is_active ? "Active" : "Inactive"}
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-sm text-stone-500">{formatIST(u.last_login)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setMode({ kind: "edit", user: u })}
+                      data-testid={`user-edit-${u.mobile}`}
+                      title="Edit"
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setMode({ kind: "reset", user: u })}
+                      data-testid={`user-reset-${u.mobile}`}
+                      title="Reset password"
+                    >
+                      <KeyRound className="size-4" />
+                    </Button>
+                    {!self && (
+                      <ConfirmDelete
+                        title={`Delete ${u.name}?`}
+                        description="This permanently removes the login. This cannot be undone."
+                        testId={`user-delete-${u.mobile}`}
+                        trigger={<Trash2 className="size-4" />}
+                        onConfirm={async () => {
+                          try {
+                            await apiDelete<Ok>(`/admin/users/${u.id}`);
+                            toast.success("User deleted");
+                            refresh();
+                          } catch (e) {
+                            toast.error(errorMessage(e));
+                          }
+                        }}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {!isLoading && users.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-stone-500" data-testid="users-empty">
+                  No users found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {(mode?.kind === "create" || mode?.kind === "edit") && (
+        <UserFormDialog key={mode.kind === "edit" ? mode.user.id : "new"} mode={mode} onClose={() => setMode(null)} />
+      )}
+      {mode?.kind === "reset" && <ResetPasswordDialog key={mode.user.id} mode={mode} onClose={() => setMode(null)} />}
+    </div>
+  );
+}
