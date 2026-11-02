@@ -18,7 +18,7 @@ from lib.auth import current_user
 from lib.db import db
 from lib.whatsapp import queue_receipt_alert
 from routers.services import assignable_service
-from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult
+from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult, MissingRequest
 from lib.auth import require_admin
 
 router = APIRouter(tags=["attachments"])
@@ -82,6 +82,8 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
         processing_at=processing_at,
         generated_at=generated,
         unread=bool(doc.get("unread_admin" if role == "admin" else "unread_user")),
+        missing_documents=doc.get("missing_documents") or [],
+        missing_resolved=doc.get("missing_resolved") or [],
     )
 
 
@@ -198,10 +200,12 @@ async def open_attachment(attachment_id: str, user: dict = Depends(current_user)
         doc.update(changes)
     msgs = await db.attachment_messages.find({"attachment_id": attachment_id}, {"_id": 0}).sort("created_at", 1).to_list(2000)
     now = _now()
+    svc = await db.services.find_one({"id": doc.get("service_id")}, {"_id": 0, "required_documents": 1}) if doc.get("service_id") else None
     return AttachmentDetail(
         server_time=now,
         attachment=_to_out(doc, user["role"], now),
         messages=[MessageOut(**m) for m in msgs],
+        service_required_documents=(svc or {}).get("required_documents", []),
     )
 
 
@@ -211,17 +215,21 @@ async def post_message(
     request: Request,
     text: str = Form(""),
     file: Optional[UploadFile] = File(None),
+    for_document: str = Form(""),
     user: dict = Depends(current_user),
 ):
     doc = await _load_visible(attachment_id, user)
     text = text.strip()[:2000]
+    for_document = for_document.strip()
+    is_admin = user["role"] == "admin"
+    if for_document and (is_admin or not file or for_document not in (doc.get("missing_documents") or [])):
+        raise HTTPException(status_code=400, detail="That document was not requested for this file")
     if not text and not file:
         raise HTTPException(status_code=400, detail="Write a remark or attach a file")
     meta = None
     if file is not None:
         data, name, ctype = await _read_valid(file)
         meta = await _store(data, name, ctype, doc["user_id"])
-    is_admin = user["role"] == "admin"
     now = _now()
     msg = MessageOut(
         id=str(uuid.uuid4()),
@@ -232,11 +240,14 @@ async def post_message(
         text=text,
         file=meta,
         is_receipt=bool(is_admin and meta),
+        for_document=for_document or None,
         created_at=now,
     )
     await db.attachment_messages.insert_one(msg.model_dump())
     if msg.is_receipt:
         event = f"Receipt sent: {meta.filename}"
+    elif for_document:
+        event = f"{user['name']} sent missing document: {for_document}"
     elif meta:
         event = f"{user['name']} attached {meta.filename}"
     else:
@@ -252,6 +263,8 @@ async def post_message(
     if msg.is_receipt and not doc.get("generated_at"):
         changes["generated_at"] = now  # receipt upload freezes the timer
     await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
+    if for_document:
+        await db.attachments.update_one({"id": attachment_id}, {"$addToSet": {"missing_resolved": for_document}})
     if msg.is_receipt:
         owner = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
         if owner:
@@ -282,6 +295,43 @@ async def get_file(file_id: str, download: bool = Query(False), user: dict = Dep
             "Cache-Control": "private, max-age=3600",
         },
     )
+
+
+@router.post("/attachments/{attachment_id}/missing", response_model=AttachmentOut)
+async def request_missing(attachment_id: str, body: MissingRequest, admin: dict = Depends(require_admin)):
+    """Admin sets (or clears, with an empty list) the missing-documents checklist for this file."""
+    doc = await _load_visible(attachment_id, admin)
+    docs = list(dict.fromkeys(d.strip()[:120] for d in body.documents if d and d.strip()))
+    note = body.note.strip()
+    now = _now()
+    if docs:
+        text = "Please send these missing documents:\n" + "\n".join(f"• {d}" for d in docs)
+        if note:
+            text += f"\n\nNote: {note}"
+        event = f"Missing documents requested ({len(docs)})"
+    else:
+        text = "Missing documents request cleared — nothing more is needed."
+        event = "Missing documents request cleared"
+    msg = MessageOut(
+        id=str(uuid.uuid4()), attachment_id=attachment_id, sender_id=admin["id"], sender_name=admin["name"],
+        sender_role="admin", text=text, file=None, is_receipt=False, created_at=now,
+    )
+    await db.attachment_messages.insert_one(msg.model_dump())
+    prev_resolved = set(doc.get("missing_resolved") or [])
+    changes = {
+        "missing_documents": docs,
+        "missing_resolved": [d for d in docs if d in prev_resolved],  # keep ticks for items still requested
+        "last_event_at": now,
+        "last_event_role": "admin",
+        "last_event_text": event,
+        "unread_user": True,
+    }
+    if not doc.get("seen_at"):
+        changes["seen_at"] = now
+    await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
+    doc.update(changes)
+    doc["message_count"] = doc.get("message_count", 0) + 1
+    return _to_out(doc, "admin", now)
 
 
 # ---------- Admin: delete files (attachment + its thread, stored files and alerts) ----------

@@ -12,6 +12,7 @@ import { ACCEPT, POLL_MS, formatBytes, playChime, syncServerTime, validateFiles 
 import type { AttachmentDetail as Detail, DeleteResult, FileMeta, MessageOut, Role } from "@/lib/types";
 import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
+import MissingDocs from "./MissingDocs";
 
 function FileChip({ file, tone = "light", testId }: { file: FileMeta; tone?: "light" | "dark"; testId: string }) {
   return (
@@ -206,6 +207,8 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
               </div>
             </div>
           )}
+
+          {a && <MissingDocs a={a} role={role} required={data?.service_required_documents ?? []} />}
 
           <div>
             <p className="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-3">Remarks & replies</p>

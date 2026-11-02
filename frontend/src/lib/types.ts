@@ -137,6 +137,8 @@ export interface AttachmentOut {
   last_event_text: string;
   unread: boolean;
   message_count: number;
+  missing_documents: string[];
+  missing_resolved: string[];
 }
 
 export interface AttachmentList {
@@ -153,6 +155,7 @@ export interface MessageOut {
   text: string;
   file: FileMeta | null;
   is_receipt: boolean;
+  for_document: string | null;
   created_at: string;
 }
 
@@ -160,6 +163,12 @@ export interface AttachmentDetail {
   server_time: string;
   attachment: AttachmentOut;
   messages: MessageOut[];
+  service_required_documents: string[];
+}
+
+export interface MissingRequest {
+  documents: string[];
+  note: string;
 }
 
 export interface BulkDelete {

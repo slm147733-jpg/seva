@@ -45,6 +45,8 @@ Settings; pages about/services/contact; 4 links (3 audience both, "National Scho
 - Users have service_ids (admin ticks them in the Create/Edit user dialog; the Users table has a Services column). Ids are checked against existing services.
 - User picks a service (required) in UploadBar from GET /api/services/mine (assigned + active only). POST /attachments and /attachments/camera require form field service_id; the server checks it is assigned to the caller and active, otherwise 403 (or 422 if missing). Attachments store service_id + service_name (snapshot); older files show "General".
 
+- Missing documents request: in the detail sheet the admin ticks items from the service's current required_documents (detail response field service_required_documents) plus custom items and an optional note → POST /api/attachments/{id}/missing {documents, note} (admin only; an empty list clears the request). This posts a thread message, sets attachment.missing_documents, keeps missing_resolved only for items still requested, and makes the user unread → live toast and chime. The user sees a checklist (testid missing-user-checklist) with an Upload button per item → POST messages with for_document=<doc> plus a file, which adds the doc to missing_resolved. for_document must be one of the requested items, user only, with a file, otherwise 400. File rows show a "N documents needed" or "Documents sent" badge.
+
 ## API (all under /api)
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links
 public: GET site, GET pages/{slug}

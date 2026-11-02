@@ -3,6 +3,7 @@ import { formatIST } from "@/lib/hooks";
 import { formatBytes } from "@/lib/live";
 import type { AttachmentOut } from "@/lib/types";
 import { StatusBadge, StatusTimer } from "./Status";
+import { MissingBadge } from "./MissingDocs";
 
 export function FileIcon({ type, className = "size-5" }: { type: string; className?: string }) {
   return type === "application/pdf" ? (
@@ -77,7 +78,8 @@ export default function AttachmentList({ items, showUser, onOpen, emptyText, sel
               </p>
               <p className="text-xs text-stone-500 truncate mt-0.5">{a.last_event_text}</p>
             </div>
-            <div className="col-start-2 md:col-start-auto flex items-center gap-3">
+            <div className="col-start-2 md:col-start-auto flex flex-wrap items-center gap-3">
+              <MissingBadge a={a} />
               <StatusBadge status={a.status} testId={`attachment-status-${a.id}`} />
               <StatusTimer a={a} testId={`attachment-timer-${a.id}`} />
             </div>

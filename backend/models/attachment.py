@@ -32,6 +32,8 @@ class AttachmentOut(BaseModel):
     last_event_text: str
     unread: bool  # unread for the caller's side
     message_count: int
+    missing_documents: list[str] = []  # requested by admin
+    missing_resolved: list[str] = []  # subset the user has since sent
 
 
 class AttachmentList(BaseModel):
@@ -48,6 +50,7 @@ class MessageOut(BaseModel):
     text: str
     file: Optional[FileMeta] = None
     is_receipt: bool
+    for_document: Optional[str] = None
     created_at: datetime
 
 
@@ -55,6 +58,12 @@ class AttachmentDetail(BaseModel):
     server_time: datetime
     attachment: AttachmentOut
     messages: list[MessageOut]
+    service_required_documents: list[str] = []
+
+
+class MissingRequest(BaseModel):
+    documents: list[str] = Field(default_factory=list, max_length=30)
+    note: str = Field(default="", max_length=500)
 
 
 class BulkDelete(BaseModel):
