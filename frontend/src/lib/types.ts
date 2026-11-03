@@ -333,3 +333,35 @@ export interface ApproveIn {
 export interface RejectIn {
   note: string;
 }
+
+// backend/models/payment.py
+export interface CreateOrderIn {
+  amount: number; // paise
+}
+
+export interface CreateOrderOut {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+  name: string;
+  prefill_name: string;
+  prefill_contact: string;
+}
+
+export interface VerifyPaymentIn {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export interface VerifyPaymentOut {
+  success: boolean;
+  credited: number;
+  balance: number;
+}
+
+export interface PaymentsStatus {
+  configured: boolean;
+  mode: "test" | "live" | "none";
+}

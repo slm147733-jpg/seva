@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Wallet, ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
+import { Wallet, ArrowDownLeft, ArrowUpRight, Clock, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,15 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { apiGet, apiPost } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import { notify } from "@/lib/live";
-import type { WalletMe, WalletRequest, WalletRequestIn } from "@/lib/types";
+import type { CreateOrderIn, CreateOrderOut, VerifyPaymentOut, WalletMe, WalletRequest } from "@/lib/types";
+import { openCheckout } from "@/lib/razorpay";
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-export function upiLink(upi: string, payee: string, amount?: number) {
-  const p = new URLSearchParams({ pa: upi, pn: payee || "Sevakendra", cu: "INR", tn: "Sevakendra wallet top-up" });
-  if (amount && amount > 0) p.set("am", amount.toFixed(2));
-  return `upi://pay?${p.toString()}`;
-}
+const QUICK = [100, 200, 500, 1000];
 
 const OPEN_EVENT = "sevakendra:open-wallet";
 export const openWallet = () => window.dispatchEvent(new Event(OPEN_EVENT));
@@ -65,22 +61,28 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
     return () => window.removeEventListener(OPEN_EVENT, h);
   }, []);
   const [amount, setAmount] = useState("");
-  const [last5, setLast5] = useState("");
-  const pay = data?.payment;
-  const canGen = !!pay?.upi_id;
-  const [qrMode, setQrMode] = useState<"upi" | "image">("upi");
-  const mode = canGen && (qrMode === "upi" || !pay?.has_qr_image) ? "upi" : pay?.has_qr_image ? "image" : null;
-  const amt = Number(amount) > 0 ? Number(amount) : undefined;
+  const amt = Math.round(Number(amount) || 0);
+  const valid = amt >= 1 && amt <= 1_000_000;
 
-  const submit = useMutation({
-    mutationFn: () => apiPost<WalletRequest>("/wallet/requests", { amount: amt ?? null, txn_last5: last5 } satisfies WalletRequestIn),
-    onSuccess: () => {
-      toast.success("Payment submitted — the admin will verify and add it to your wallet");
+  const pay = useMutation({
+    mutationFn: async () => {
+      const order = await apiPost<CreateOrderOut>("/create-order", { amount: amt * 100 } satisfies CreateOrderIn);
+      setOpen(false); // let the Razorpay modal take focus
+      const r = await openCheckout(order, (msg) => toast.error(msg));
+      if (r.kind === "dismissed") return { cancelled: true as const, lastError: r.lastError };
+      const v = await apiPost<VerifyPaymentOut>("/verify-payment", r.payment);
+      return { cancelled: false as const, v };
+    },
+    onSuccess: (r) => {
+      if (r.cancelled) {
+        toast.info(r.lastError ? "Payment not completed — no money was added" : "Payment cancelled");
+        return;
+      }
+      toast.success(`${rupees(r.v.credited)} added · Balance ${rupees(r.v.balance)}`);
       setAmount("");
-      setLast5("");
       qc.invalidateQueries({ queryKey: ["wallet-me"] });
     },
-    onError: (e) => toast.error(errorMessage(e, "Could not submit")),
+    onError: (e) => toast.error(errorMessage(e, e instanceof Error && !("status" in e) ? e.message : "Payment could not be completed")),
   });
 
   return (
@@ -102,7 +104,7 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="size-5 text-orange-600" /> My wallet
             </DialogTitle>
-            <DialogDescription>Scan & pay, then enter the last 5 digits of the transaction number.</DialogDescription>
+            <DialogDescription>Top up online in seconds. Service fees are paid from this balance.</DialogDescription>
           </DialogHeader>
 
           <div className="rounded-2xl bg-gradient-to-br from-orange-600 to-amber-400 p-5 text-white">
@@ -111,72 +113,50 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
             <p className="mt-1 text-xs text-white/85">Service fees are paid from this wallet when you submit files.</p>
           </div>
 
-          <div className="rounded-2xl border border-stone-200 p-4">
-            {canGen && pay?.has_qr_image && (
-              <div className="mb-3 flex gap-1 rounded-full bg-stone-100 p-1 w-fit mx-auto" data-testid="wallet-qr-toggle">
-                {(["upi", "image"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setQrMode(m)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${mode === m ? "bg-white shadow text-stone-900" : "text-stone-500"}`}
-                    data-testid={`wallet-qr-mode-${m}`}
-                  >
-                    {m === "upi" ? "UPI QR" : "Shop QR"}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="grid place-items-center" data-testid="wallet-qr">
-              {mode === "upi" && pay ? (
-                <>
-                  <div className="rounded-xl bg-white p-3 border border-stone-200">
-                    <QRCodeSVG value={upiLink(pay.upi_id, pay.payee_name, amt)} size={196} level="M" data-testid="wallet-qr-generated" />
-                  </div>
-                  <p className="mt-2 text-sm font-medium">{pay.payee_name || "Sevakendra"}</p>
-                  <p className="font-mono text-xs text-stone-500" data-testid="wallet-upi-id">{pay.upi_id}</p>
-                  {amt && <p className="text-xs text-orange-700 font-semibold">Amount {rupees(amt)} pre-filled</p>}
-                </>
-              ) : mode === "image" ? (
-                <img src="/api/wallet/qr-image" alt="Payment QR" className="max-h-64 rounded-xl border border-stone-200" data-testid="wallet-qr-image" />
-              ) : (
-                <p className="py-8 text-center text-sm text-stone-500" data-testid="wallet-qr-missing">
-                  The admin hasn't set up a payment QR yet. Please pay at the counter.
-                </p>
-              )}
-            </div>
-          </div>
-
           <form
-            className="grid gap-3 sm:grid-cols-2"
+            className="rounded-2xl border border-stone-200 p-4 space-y-3"
             onSubmit={(e: FormEvent) => {
               e.preventDefault();
-              if (!/^\d{5}$/.test(last5)) return toast.error("Enter exactly 5 digits");
-              submit.mutate();
+              pay.mutate();
             }}
-            data-testid="wallet-form"
+            data-testid="wallet-topup-form"
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="w-amt">Amount paid (optional)</Label>
-              <Input id="w-amt" type="number" min={1} step="1" inputMode="decimal" placeholder="₹" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid="wallet-amount-input" />
+            <p className="font-semibold flex items-center gap-2">
+              <CreditCard className="size-4 text-orange-600" /> Add money online
+            </p>
+            <div className="flex flex-wrap gap-2" data-testid="wallet-quick-amounts">
+              {QUICK.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setAmount(String(n))}
+                  className={`rounded-full border px-3.5 py-1.5 font-mono text-sm font-semibold transition-[background-color,color,transform] duration-150 active:scale-95 ${
+                    Number(amount) === n ? "border-orange-600 bg-orange-600 text-white" : "border-stone-200 bg-white hover:bg-orange-50"
+                  }`}
+                  data-testid={`wallet-quick-${n}`}
+                >
+                  {rupees(n)}
+                </button>
+              ))}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="w-last5">Last 5 digits of transaction no.</Label>
+              <Label htmlFor="w-amt">Or enter any amount</Label>
               <Input
-                id="w-last5"
+                id="w-amt"
+                type="number"
+                min={1}
+                step="1"
                 inputMode="numeric"
-                maxLength={5}
-                placeholder="e.g. 48213"
-                className="font-mono tracking-[0.3em]"
-                value={last5}
-                onChange={(e) => setLast5(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                required
-                data-testid="wallet-last5-input"
+                placeholder="₹"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                data-testid="wallet-amount-input"
               />
             </div>
-            <Button type="submit" className="sm:col-span-2 h-11" disabled={submit.isPending || last5.length !== 5} data-testid="wallet-submit-button">
-              {submit.isPending ? "Submitting…" : "Submit payment"}
+            <Button type="submit" className="w-full h-11" disabled={pay.isPending || !valid} data-testid="wallet-pay-online-button">
+              {pay.isPending ? "Opening payment…" : valid ? `Pay ${rupees(amt)} online` : "Enter an amount (min ₹1)"}
             </Button>
+            <p className="text-center text-[11px] text-stone-500">UPI, cards and net banking · secured by Razorpay · added to your wallet instantly</p>
           </form>
 
           {data && data.requests.length > 0 && (
