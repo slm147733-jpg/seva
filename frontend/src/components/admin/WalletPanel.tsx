@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Check, CheckCircle2, CreditCard, PlugZap, Wallet, X, XCircle } from "lucide-react";
+import { Check, ImagePlus, Trash2, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox as _Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AdjustDialog, { invalidateWallet } from "@/components/wallet/AdjustDialog";
-import { apiGet, apiPost } from "@/lib/api";
+import { upiLink } from "@/components/wallet/WalletButton";
+import { apiDelete, apiGet, apiPost, apiPut, apiUpload } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
-import type { ApproveIn, ConnectionTest, PaymentsStatus, RejectIn, UserOut, WalletRequest, WalletTxn } from "@/lib/types";
+import type { ApproveIn, PaymentInfo, RejectIn, UserOut, WalletRequest, WalletSettingsIn, WalletTxn } from "@/lib/types";
 import { PanelHeader } from "./common";
 
 function RequestRow({ r }: { r: WalletRequest }) {
@@ -55,64 +58,84 @@ function RequestRow({ r }: { r: WalletRequest }) {
   );
 }
 
-function RazorpayCard() {
-  const { data } = useQuery({ queryKey: ["payments-status"], queryFn: () => apiGet<PaymentsStatus>("/admin/payments/status") });
-  const ok = data?.configured;
-  const test = useMutation({
-    mutationFn: () => apiPost<ConnectionTest>("/admin/payments/test"),
-    onError: (e) => toast.error(errorMessage(e, "Could not run the test")),
+function SettingsCard({ info }: { info: PaymentInfo }) {
+  const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState<WalletSettingsIn>({ upi_id: info.upi_id, payee_name: info.payee_name, deduct_fees: info.deduct_fees });
+  const done = (msg: string) => () => {
+    toast.success(msg);
+    qc.invalidateQueries({ queryKey: ["admin-wallet-settings"] });
+  };
+  const save = useMutation({ mutationFn: () => apiPut<PaymentInfo>("/admin/wallet/settings", form), onSuccess: done("Payment settings saved"), onError: (e) => toast.error(errorMessage(e, "Check the UPI ID (like name@bank)")) });
+  const upload = useMutation({
+    mutationFn: (f: File) => {
+      const fd = new FormData();
+      fd.append("file", f);
+      return apiUpload<PaymentInfo>("/admin/wallet/qr-image", fd);
+    },
+    onSuccess: done("QR image uploaded"),
+    onError: (e) => toast.error(errorMessage(e)),
   });
-  const result = test.data;
+  const remove = useMutation({ mutationFn: () => apiDelete<PaymentInfo>("/admin/wallet/qr-image"), onSuccess: done("QR image removed") });
+
   return (
-    <div
-      className={`flex items-start gap-3 rounded-2xl border p-5 ${ok ? "border-green-200 bg-green-50" : "border-amber-300 bg-amber-50"}`}
-      data-testid="razorpay-status"
-    >
-      <CreditCard className={`size-6 shrink-0 ${ok ? "text-green-700" : "text-amber-700"}`} />
-      <div className="text-sm">
-        <p className="font-semibold" data-testid="razorpay-status-text">
-          {!data ? "Checking online payments…" : ok ? `Online payments are on (Razorpay ${data.mode === "live" ? "LIVE" : "TEST"} mode)` : "Online payments are not set up"}
-        </p>
-        <p className="text-stone-600">
-          Users top up their wallet with UPI, card or net banking through Razorpay. The money is added to their wallet automatically
-          after the payment is verified.{data?.mode === "test" && " Test mode: no real money moves."}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button size="sm" variant="outline" disabled={test.isPending} onClick={() => test.mutate()} data-testid="razorpay-test-button">
-            <PlugZap className="size-4" /> {test.isPending ? "Testing…" : "Test connection"}
-          </Button>
-          {result && !test.isPending && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold animate-rise ${
-                result.ok ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
-              }`}
-              data-testid="razorpay-test-result"
-              data-ok={result.ok}
-            >
-              {result.ok ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />} {result.detail}
-            </span>
-          )}
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 grid gap-6 md:grid-cols-[1fr_auto]" data-testid="wallet-settings">
+      <form
+        className="space-y-4"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <h2 className="font-heading font-semibold">Payment settings</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="ws-upi">Your UPI ID</Label>
+            <Input id="ws-upi" placeholder="sevakendra@okaxis" value={form.upi_id} onChange={(e) => setForm({ ...form, upi_id: e.target.value.trim() })} data-testid="wallet-settings-upi" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ws-name">Payee name</Label>
+            <Input id="ws-name" placeholder="Sevakendra" value={form.payee_name} onChange={(e) => setForm({ ...form, payee_name: e.target.value })} data-testid="wallet-settings-payee" />
+          </div>
         </div>
-        {data && (
-          <div className="mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2.5" data-testid="razorpay-webhook">
-            <p className="font-semibold" data-testid="razorpay-webhook-status">
-              Backup webhook: {data.webhook_configured ? "on" : "not set up yet"}
-            </p>
-            <p className="text-xs text-stone-600">
-              Credits the wallet even if a user closes the page mid-payment. In Razorpay Dashboard → Webhooks, add this URL with the
-              events <strong>payment.captured</strong> and <strong>order.paid</strong>:
-            </p>
-            <div className="mt-1.5 flex items-center gap-2">
-              <code className="flex-1 truncate rounded bg-stone-100 px-2 py-1 text-xs" data-testid="razorpay-webhook-url">{data.webhook_url}</code>
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() => navigator.clipboard.writeText(data.webhook_url).then(() => toast.success("Webhook URL copied"))}
-                data-testid="razorpay-webhook-copy"
-              >
-                Copy
-              </Button>
-            </div>
+        <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-900" data-testid="wallet-settings-fee-note">
+          Service fees are taken from the user's wallet automatically when they press <strong>Submit</strong> on their files.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={save.isPending} data-testid="wallet-settings-save">Save settings</Button>
+          <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={upload.isPending} data-testid="wallet-qr-upload-button">
+            <ImagePlus className="size-4" /> {info.has_qr_image ? "Replace QR image" : "Upload QR image"}
+          </Button>
+          {info.has_qr_image && (
+            <Button type="button" variant="ghost" className="text-red-600" onClick={() => remove.mutate()} data-testid="wallet-qr-remove-button">
+              <Trash2 className="size-4" /> Remove image
+            </Button>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) upload.mutate(f);
+            }}
+            data-testid="wallet-qr-file-input"
+          />
+        </div>
+      </form>
+      <div className="flex gap-4 items-start">
+        {info.upi_id && (
+          <div className="text-center">
+            <div className="rounded-xl border border-stone-200 p-2 bg-white"><QRCodeSVG value={upiLink(info.upi_id, info.payee_name)} size={120} /></div>
+            <p className="mt-1 text-[11px] text-stone-500">UPI QR</p>
+          </div>
+        )}
+        {info.has_qr_image && (
+          <div className="text-center">
+            <img src={`/api/wallet/qr-image?v=${Date.now() >> 16}`} alt="Shop QR" className="h-[136px] rounded-xl border border-stone-200" data-testid="wallet-settings-qr-image" />
+            <p className="mt-1 text-[11px] text-stone-500">Shop QR</p>
           </div>
         )}
       </div>
@@ -122,19 +145,17 @@ function RazorpayCard() {
 
 export default function WalletPanel({ pending }: { pending: WalletRequest[] }) {
   const [adjusting, setAdjusting] = useState<UserOut | null>(null);
+  const settings = useQuery({ queryKey: ["admin-wallet-settings"], queryFn: () => apiGet<PaymentInfo>("/admin/wallet/settings") });
   const users = useQuery({ queryKey: ["admin-users"], queryFn: () => apiGet<UserOut[]>("/admin/users") });
   const txns = useQuery({ queryKey: ["admin-wallet-txns"], queryFn: () => apiGet<WalletTxn[]>("/admin/wallet/transactions"), refetchInterval: 15000 });
   const members = (users.data ?? []).filter((u) => u.role === "user");
 
   return (
     <div className="space-y-8">
-      <PanelHeader title="Wallet" subtitle="Online top-ups via Razorpay, manual add / remove, and every wallet movement." />
+      <PanelHeader title="Wallet" subtitle="Verify user payments, add or remove money manually, and set up your payment QR." />
 
-      <RazorpayCard />
-
-      {pending.length > 0 && (
       <section>
-        <h2 className="font-heading text-lg font-bold mb-3">Older QR payments to verify ({pending.length})</h2>
+        <h2 className="font-heading text-lg font-bold mb-3">Payments to verify ({pending.length})</h2>
         <div className="rounded-2xl border border-stone-200 bg-white overflow-hidden">
           <Table data-testid="wallet-requests-table">
             <TableHeader>
@@ -155,7 +176,8 @@ export default function WalletPanel({ pending }: { pending: WalletRequest[] }) {
           </Table>
         </div>
       </section>
-      )}
+
+      {settings.data && <SettingsCard key={JSON.stringify(settings.data)} info={settings.data} />}
 
       <section>
         <h2 className="font-heading text-lg font-bold mb-3">User balances</h2>

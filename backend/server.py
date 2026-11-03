@@ -60,7 +60,7 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
-from routers import admin, attachments, auth, payments, public, reject_reasons, reports, services, wallet  # noqa: E402
+from routers import admin, attachments, auth, public, reject_reasons, reports, services, wallet  # noqa: E402
 
 api_router.include_router(auth.router)
 api_router.include_router(admin.router)
@@ -70,7 +70,6 @@ api_router.include_router(reports.router)
 api_router.include_router(public.router)
 api_router.include_router(attachments.router)
 api_router.include_router(reject_reasons.router)
-api_router.include_router(payments.router)
 
 # Include the router in the main app
 app.include_router(api_router)

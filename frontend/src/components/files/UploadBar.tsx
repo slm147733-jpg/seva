@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, CheckCircle2, CreditCard, FileText, Images, Paperclip, Send, UploadCloud, Wallet, X } from "lucide-react";
-import { topUpOnline } from "@/lib/razorpay";
+import { Camera, CheckCircle2, FileText, Images, Paperclip, Send, UploadCloud, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CameraCapture from "./CameraCapture";
@@ -42,22 +41,6 @@ export default function UploadBar() {
   const total = fee * count;
   const balance = wallet.data?.balance ?? 0;
   const short = total > balance;
-  const shortBy = Math.max(1, Math.ceil((total - balance) * 100) / 100);
-
-  // Wallet too low: pay just the difference online, then submit right away (the fee is taken from the wallet as usual).
-  const payAndSubmit = useMutation({
-    mutationFn: () => topUpOnline(shortBy, (msg) => toast.error(msg)),
-    onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ["wallet-me"] });
-      if (!r.paid) {
-        toast.info(r.lastError ? "Payment not completed — nothing was submitted" : "Payment cancelled — your files are still ready to submit");
-        return;
-      }
-      toast.success(`${formatINR(r.verified.credited)} added to wallet — submitting now`);
-      submit.mutate();
-    },
-    onError: (e) => toast.error(errorMessage(e, e instanceof Error && !("status" in e) ? e.message : "Payment could not be completed")),
-  });
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -249,24 +232,12 @@ export default function UploadBar() {
               </p>
               <p className={`flex items-center gap-1 text-xs font-semibold ${short ? "text-red-600" : "text-green-700"}`} data-testid="upload-wallet-note">
                 <Wallet className="size-3.5" /> Wallet balance ₹{balance.toLocaleString("en-IN")}
-                {short ? ` — pay the ₹${shortBy.toLocaleString("en-IN")} difference online to submit` : total > 0 ? " — fee will be paid from your wallet" : ""}
+                {short ? ` — add ₹${(total - balance).toLocaleString("en-IN")} more to submit` : total > 0 ? " — fee will be paid from your wallet" : ""}
               </p>
             </div>
-            {short ? (
-              <Button
-                className="h-11 px-6"
-                disabled={payAndSubmit.isPending || submit.isPending || !serviceId}
-                onClick={() => payAndSubmit.mutate()}
-                data-testid="upload-pay-and-submit-button"
-              >
-                <CreditCard className="size-4" />{" "}
-                {payAndSubmit.isPending ? "Opening payment…" : submit.isPending ? "Submitting…" : `Pay ${formatINR(shortBy)} online & submit`}
-              </Button>
-            ) : (
-            <Button className="h-11 px-6" disabled={submit.isPending || !serviceId} onClick={() => submit.mutate()} data-testid="upload-submit-button">
+            <Button className="h-11 px-6" disabled={submit.isPending || short || !serviceId} onClick={() => submit.mutate()} data-testid="upload-submit-button">
               <Send className="size-4" /> {submit.isPending ? "Submitting…" : total > 0 ? `Submit & pay ${formatINR(total)}` : "Submit"}
             </Button>
-            )}
           </div>
         </div>
       )}
