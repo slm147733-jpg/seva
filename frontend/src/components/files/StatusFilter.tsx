@@ -2,7 +2,7 @@ import type { AttachmentOut, FileStatus } from "@/lib/types";
 import { STATUS_LABELS } from "./Status";
 
 export type StatusFilterValue = FileStatus | "all";
-const FILTERS: StatusFilterValue[] = ["all", "not_started", "seen", "processing", "generated"];
+const FILTERS: StatusFilterValue[] = ["all", "not_started", "seen", "processing", "generated", "rejected"];
 
 export function applyStatusFilter(items: AttachmentOut[], value: StatusFilterValue): AttachmentOut[] {
   return value === "all" ? items : items.filter((a) => a.status === value);

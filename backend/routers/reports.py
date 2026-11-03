@@ -28,19 +28,23 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
     now = datetime.now(timezone.utc)
     today = now.astimezone(IST).date()
     keys = [(today - timedelta(days=i)).isoformat() for i in range(days)]
-    received, seen, generated = defaultdict(int), defaultdict(int), defaultdict(int)
+    received, seen, generated, rejected = defaultdict(int), defaultdict(int), defaultdict(int), defaultdict(int)
     durations: dict[str, list[float]] = defaultdict(list)
-    counts = {"not_started": 0, "seen": 0, "processing": 0, "generated": 0}
+    counts = {"not_started": 0, "seen": 0, "processing": 0, "generated": 0, "rejected": 0}
     all_durations: list[float] = []
 
     query = {"service_id": service_id} if service_id else {}
-    docs = await db.attachments.find(query, {"_id": 0, "created_at": 1, "seen_at": 1, "generated_at": 1}).to_list(100000)
+    docs = await db.attachments.find(query, {"_id": 0, "created_at": 1, "seen_at": 1, "generated_at": 1, "rejected_at": 1}).to_list(100000)
     for d in docs:
         created, s, g = _utc(d["created_at"]), _utc(d.get("seen_at")), _utc(d.get("generated_at"))
+        rj = _utc(d.get("rejected_at"))
         received[_day(created)] += 1
         if s:
             seen[_day(s)] += 1
-        if g:
+        if rj:
+            rejected[_day(rj)] += 1
+            counts["rejected"] += 1
+        elif g:
             generated[_day(g)] += 1
             mins = (g - created).total_seconds() / 60  # timer runs from submission, same as on screen
             durations[_day(g)].append(mins)
@@ -51,16 +55,34 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
         else:
             counts["not_started"] += 1
 
+    # Wallet money per IST day: fees taken at submit, refunds given back on delete/reject.
+    fees, refunds = defaultdict(float), defaultdict(float)
+    start = datetime.combine(today - timedelta(days=days - 1), datetime.min.time(), IST).astimezone(timezone.utc)
+    tq: dict = {"created_at": {"$gte": start}, "$or": [
+        {"category": {"$in": ["fee", "refund"]}},
+        {"category": {"$exists": False}, "type": "debit", "created_by": "system", "reason": {"$regex": "^Fee:"}},  # older fee rows
+    ]}
+    if service_id:
+        tq["service_id"] = service_id
+    async for t in db.wallet_transactions.find(tq, {"_id": 0, "category": 1, "amount": 1, "created_at": 1}):
+        (refunds if t.get("category") == "refund" else fees)[_day(t["created_at"])] += t["amount"]
+    r2 = lambda x: round(x, 2)  # noqa: E731
+
     def avg(xs):
         return round(sum(xs) / len(xs), 1) if xs else None
 
     return DailyReport(
         today=today.isoformat(),
-        days=[DayRow(date=k, received=received[k], seen=seen[k], generated=generated[k], avg_minutes=avg(durations[k])) for k in keys],
+        days=[DayRow(date=k, received=received[k], seen=seen[k], generated=generated[k], avg_minutes=avg(durations[k]),
+                     rejected=rejected[k], fees_collected=r2(fees[k]), refunds=r2(refunds[k]), net_fees=r2(fees[k] - refunds[k]))
+              for k in keys],
         current=StatusCounts(**counts),
         total_received=len(docs),
         total_generated=counts["generated"],
         avg_minutes=avg(all_durations),
+        total_fees_collected=r2(sum(fees[k] for k in keys)),
+        total_refunds=r2(sum(refunds[k] for k in keys)),
+        total_net_fees=r2(sum(fees[k] - refunds[k] for k in keys)),
     )
 
 

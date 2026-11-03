@@ -63,7 +63,10 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
   const bulkDelete = useMutation({
     mutationFn: (ids: string[]) => apiPost<DeleteResult>("/attachments/bulk-delete", { ids }),
     onSuccess: (r) => {
-      toast.success(`Deleted ${r.deleted} file${r.deleted === 1 ? "" : "s"}`);
+      toast.success(
+        `Deleted ${r.deleted} file${r.deleted === 1 ? "" : "s"}${r.refunded > 0 ? ` · ₹${r.refunded.toLocaleString("en-IN")} refunded to wallets` : ""}`,
+      );
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
       setSelected(new Set());
       setConfirmOpen(false);
       invalidateFileQueries(qc);
@@ -138,7 +141,7 @@ export default function FilesPanel({ adminId, items }: { adminId: string; items:
             </DialogTitle>
             <DialogDescription>
               This permanently removes the files, their remarks, receipts and WhatsApp alert entries for both you and the users. This
-              cannot be undone.
+              cannot be undone. Fees for files without a receipt yet are refunded to the users' wallets.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

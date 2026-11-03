@@ -17,6 +17,8 @@ const fmtMins = (m: number | null) => {
   return `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`;
 };
 
+const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 
@@ -47,12 +49,18 @@ export default function ReportsPanel() {
     { key: "today-avg", label: "Avg time today", value: todayRow ? fmtMins(todayRow.avg_minutes) : "—" },
     { key: "pending", label: "Pending now", value: r ? r.current.not_started + r.current.seen + r.current.processing : "—" },
   ];
+  const money = [
+    { key: "fees-today", label: "Fees collected today", value: todayRow ? inr(todayRow.fees_collected) : "—" },
+    { key: "refunds-today", label: "Refunded today", value: todayRow ? inr(todayRow.refunds) : "—" },
+    { key: "net-today", label: "Net income today", value: todayRow ? inr(todayRow.net_fees) : "—" },
+    { key: "net-range", label: `Net income · ${days} days`, value: r ? inr(r.total_net_fees) : "—" },
+  ];
 
   return (
     <div>
       <PanelHeader
         title="Daily work report"
-        subtitle="Files received, opened and finished each day (India time), with the average time taken per receipt."
+        subtitle="Files received, opened and finished each day (India time), with time taken and wallet fees collected minus refunds."
         action={
           <div className="flex flex-col sm:flex-row gap-2">
           <ServiceSelect
@@ -96,10 +104,26 @@ export default function ReportsPanel() {
         ))}
       </div>
 
+      <div className="mt-4 grid gap-4 grid-cols-2 lg:grid-cols-4" data-testid="report-money">
+        {money.map((c, i) => (
+          <div
+            key={c.key}
+            className={`rounded-2xl border p-5 animate-rise ${c.key === "net-range" ? "bg-amber-100 border-amber-300" : "bg-white border-stone-200"}`}
+            style={{ animationDelay: `${160 + i * 40}ms` }}
+            data-testid={`report-card-${c.key}`}
+          >
+            <p className="text-sm text-stone-500">{c.label}</p>
+            <p className={`mt-2 font-mono text-2xl font-bold ${c.key.startsWith("refunds") ? "text-red-700" : "text-green-800"}`} data-testid={`report-value-${c.key}`}>
+              {c.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
       {r && (
         <p className="mt-4 text-sm text-stone-600" data-testid="report-current">
           Right now: <strong>{r.current.not_started}</strong> not yet started · <strong>{r.current.seen}</strong> seen ·{" "}
-          <strong>{r.current.processing}</strong> processing · <strong>{r.current.generated}</strong> generated · overall average{" "}
+          <strong>{r.current.processing}</strong> processing · <strong>{r.current.generated}</strong> generated · <strong>{r.current.rejected}</strong> rejected · overall average{" "}
           <strong>{fmtMins(r.avg_minutes)}</strong>
         </p>
       )}
@@ -129,7 +153,11 @@ export default function ReportsPanel() {
               <TableHead className="text-right">Received</TableHead>
               <TableHead className="text-right">Opened (seen)</TableHead>
               <TableHead className="text-right">Receipts generated</TableHead>
+              <TableHead className="text-right">Rejected</TableHead>
               <TableHead className="text-right">Avg time taken</TableHead>
+              <TableHead className="text-right">Fees collected</TableHead>
+              <TableHead className="text-right">Refunded</TableHead>
+              <TableHead className="text-right">Net income</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -141,7 +169,11 @@ export default function ReportsPanel() {
                 <TableCell className="text-right font-mono">{d.received}</TableCell>
                 <TableCell className="text-right font-mono">{d.seen}</TableCell>
                 <TableCell className="text-right font-mono">{d.generated}</TableCell>
+                <TableCell className="text-right font-mono">{d.rejected}</TableCell>
                 <TableCell className="text-right font-mono">{fmtMins(d.avg_minutes)}</TableCell>
+                <TableCell className="text-right font-mono text-green-800" data-testid={`report-fees-${d.date}`}>{inr(d.fees_collected)}</TableCell>
+                <TableCell className="text-right font-mono text-red-700" data-testid={`report-refunds-${d.date}`}>{inr(d.refunds)}</TableCell>
+                <TableCell className="text-right font-mono font-semibold" data-testid={`report-net-${d.date}`}>{inr(d.net_fees)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

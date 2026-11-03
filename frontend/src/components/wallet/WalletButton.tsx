@@ -20,6 +20,9 @@ export function upiLink(upi: string, payee: string, amount?: number) {
   return `upi://pay?${p.toString()}`;
 }
 
+const OPEN_EVENT = "sevakendra:open-wallet";
+export const openWallet = () => window.dispatchEvent(new Event(OPEN_EVENT));
+
 // Polls the wallet and chimes when the admin adds money or handles a payment.
 function useLiveWallet() {
   const q = useQuery({ queryKey: ["wallet-me"], queryFn: () => apiGet<WalletMe>("/wallet/me"), refetchInterval: 5000 });
@@ -56,6 +59,11 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
   const qc = useQueryClient();
   const { data } = useLiveWallet();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const h = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, h);
+    return () => window.removeEventListener(OPEN_EVENT, h);
+  }, []);
   const [amount, setAmount] = useState("");
   const [last5, setLast5] = useState("");
   const pay = data?.payment;

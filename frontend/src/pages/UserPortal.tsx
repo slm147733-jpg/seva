@@ -19,6 +19,7 @@ import AttachmentDetail from "@/components/files/AttachmentDetail";
 import StatusFilter, { applyStatusFilter, type StatusFilterValue } from "@/components/files/StatusFilter";
 import { useLiveAttachments } from "@/lib/live";
 import WalletButton from "@/components/wallet/WalletButton";
+import LowBalanceBanner from "@/components/wallet/LowBalanceBanner";
 
 function ProfileDialog({ user }: { user: UserOut }) {
   const qc = useQueryClient();
@@ -164,6 +165,7 @@ export default function UserPortal() {
               {files.filter((f) => f.status === "generated").length} of {files.length} receipts ready
             </span>
           </div>
+          <LowBalanceBanner />
           <UploadBar />
           <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <StatusFilter items={files} value={fileFilter} onChange={setFileFilter} testPrefix="portal-files" />

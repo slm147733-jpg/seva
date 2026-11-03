@@ -10,6 +10,10 @@ class DayRow(BaseModel):
     seen: int
     generated: int
     avg_minutes: Optional[float] = None  # average time taken for receipts generated that day
+    rejected: int = 0
+    fees_collected: float = 0
+    refunds: float = 0
+    net_fees: float = 0
 
 
 class StatusCounts(BaseModel):
@@ -17,6 +21,7 @@ class StatusCounts(BaseModel):
     seen: int
     processing: int
     generated: int
+    rejected: int = 0
 
 
 class DailyReport(BaseModel):
@@ -26,6 +31,9 @@ class DailyReport(BaseModel):
     total_received: int
     total_generated: int
     avg_minutes: Optional[float] = None
+    total_fees_collected: float = 0  # within the selected range
+    total_refunds: float = 0
+    total_net_fees: float = 0
 
 
 class WhatsAppAlert(BaseModel):

@@ -110,7 +110,7 @@ export interface SiteData {
 }
 
 // backend/models/attachment.py
-export type FileStatus = "not_started" | "seen" | "processing" | "generated";
+export type FileStatus = "not_started" | "seen" | "processing" | "generated" | "rejected";
 
 export interface FileMeta {
   file_id: string;
@@ -140,6 +140,10 @@ export interface AttachmentOut {
   message_count: number;
   missing_documents: string[];
   missing_resolved: string[];
+  rejected_at: string | null;
+  reject_reason: string;
+  fee_charged: number;
+  fee_refunded: boolean;
 }
 
 export interface AttachmentList {
@@ -178,6 +182,11 @@ export interface BulkDelete {
 
 export interface DeleteResult {
   deleted: number;
+  refunded: number;
+}
+
+export interface RejectFileIn {
+  reason: string;
 }
 
 // backend/models/report.py
@@ -187,6 +196,10 @@ export interface DayRow {
   seen: number;
   generated: number;
   avg_minutes: number | null;
+  rejected: number;
+  fees_collected: number;
+  refunds: number;
+  net_fees: number;
 }
 
 export interface StatusCounts {
@@ -194,6 +207,7 @@ export interface StatusCounts {
   seen: number;
   processing: number;
   generated: number;
+  rejected: number;
 }
 
 export interface DailyReport {
@@ -203,6 +217,9 @@ export interface DailyReport {
   total_received: number;
   total_generated: number;
   avg_minutes: number | null;
+  total_fees_collected: number;
+  total_refunds: number;
+  total_net_fees: number;
 }
 
 export interface WhatsAppAlert {
@@ -229,6 +246,8 @@ export interface WalletTxn {
   balance_after: number;
   created_by: string;
   attachment_id: string | null;
+  category: "fee" | "refund" | "topup" | "adjust";
+  service_id: string | null;
   created_at: string;
 }
 
@@ -263,6 +282,8 @@ export interface WalletMe {
   payment: PaymentInfo;
   transactions: WalletTxn[];
   requests: WalletRequest[];
+  usual_fee: number;
+  usual_service_name: string;
 }
 
 export interface WalletSettingsIn {

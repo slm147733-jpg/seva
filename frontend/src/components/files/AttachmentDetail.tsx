@@ -13,6 +13,7 @@ import type { AttachmentDetail as Detail, DeleteResult, FileMeta, MessageOut, Ro
 import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
 import MissingDocs from "./MissingDocs";
+import RejectDialog from "./RejectDialog";
 
 function FileChip({ file, tone = "light", testId }: { file: FileMeta; tone?: "light" | "dark"; testId: string }) {
   return (
@@ -150,16 +151,22 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
               <StatusBadge status={a.status} testId="detail-status" />
               <StatusTimer a={a} testId="detail-timer" />
               {role === "admin" && (
-                <span className="ml-auto">
+                <span className="ml-auto flex items-center gap-1">
+                  {a.status !== "generated" && a.status !== "rejected" && <RejectDialog a={a} />}
                   <ConfirmDelete
                     title="Delete this file?"
-                    description="Removes the file, its remarks, receipts and WhatsApp alert entries for both sides. This cannot be undone."
+                    description={`Removes the file, its remarks, receipts and WhatsApp alert entries for both sides. This cannot be undone.${
+                      a.fee_charged > 0 && !a.fee_refunded && a.status !== "generated"
+                        ? ` The ${formatINR(a.fee_charged)} fee will be refunded to ${a.user_name}'s wallet.`
+                        : ""
+                    }`}
                     testId="detail-delete-button"
                     trigger={<Trash2 className="size-4" />}
                     onConfirm={async () => {
                       try {
-                        await apiDelete<DeleteResult>(`/attachments/${a.id}`);
-                        toast.success("File deleted");
+                        const r = await apiDelete<DeleteResult>(`/attachments/${a.id}`);
+                        toast.success(r.refunded > 0 ? `File deleted · ${formatINR(r.refunded)} refunded` : "File deleted");
+                        qc.invalidateQueries({ queryKey: ["admin-users"] });
                         onClose();
                         qc.removeQueries({ queryKey: ["attachment", a.id] });
                         qc.invalidateQueries({ queryKey: ["attachments"] });
@@ -177,6 +184,17 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {a?.status === "rejected" && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-testid="detail-rejected-banner">
+              <p className="font-semibold">This file was rejected{a.rejected_at ? ` on ${formatIST(a.rejected_at)}` : ""}.</p>
+              {a.reject_reason && <p className="mt-1" data-testid="detail-reject-reason">Reason: {a.reject_reason}</p>}
+              {a.fee_refunded && a.fee_charged > 0 && (
+                <p className="mt-1 font-medium text-green-800" data-testid="detail-refund-note">
+                  {formatINR(a.fee_charged)} was refunded to the wallet.
+                </p>
+              )}
+            </div>
+          )}
           {a && (
             <div className="rounded-2xl border border-stone-200 bg-stone-50 overflow-hidden" data-testid="detail-preview">
               {isImage ? (

@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Status = Literal["not_started", "seen", "processing", "generated"]
+Status = Literal["not_started", "seen", "processing", "generated", "rejected"]
 
 
 class FileMeta(BaseModel):
@@ -34,6 +34,10 @@ class AttachmentOut(BaseModel):
     message_count: int
     missing_documents: list[str] = []  # requested by admin
     missing_resolved: list[str] = []  # subset the user has since sent
+    rejected_at: Optional[datetime] = None
+    reject_reason: str = ""
+    fee_charged: float = 0  # wallet fee taken for this file at submit
+    fee_refunded: bool = False
 
 
 class AttachmentList(BaseModel):
@@ -72,3 +76,8 @@ class BulkDelete(BaseModel):
 
 class DeleteResult(BaseModel):
     deleted: int
+    refunded: float = 0  # total fees returned to user wallets
+
+
+class RejectFileIn(BaseModel):
+    reason: str = Field(default="", max_length=500)

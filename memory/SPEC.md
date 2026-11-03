@@ -58,3 +58,11 @@ Settings; pages about/services/contact; 4 links (3 audience both, "National Scho
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links
 public: GET site, GET pages/{slug}
 admin (admin only): users CRUD + /users/{id}/reset-password, GET stats, pages CRUD, links CRUD, PUT settings
+
+## Refunds, rejection, low balance, fee report (latest)
+- Each attachment stores `fee_charged` (the per-file fee taken at Submit) and `fee_refunded`. Older files have no `fee_charged`, so they are never refunded.
+- Admin **Reject** (POST /api/attachments/{id}/reject, optional reason): status becomes `rejected` and the timer freezes at `rejected_at`. A chat message goes to the user and the fee is refunded once. A receipt can't be sent for a rejected file, and a file that already has a receipt can't be rejected (409).
+- Admin **Delete**, single or bulk: refunds the fee automatically when the file has no receipt yet (`generated_at` is not set). DeleteResult.refunded returns the total refunded.
+- Wallet transactions now carry `category` (fee/refund/topup/adjust) and `service_id`.
+- Low balance banner (user portal): `/api/wallet/me` returns `usual_fee` and `usual_service_name`. The usual service is the user's most-used assigned service, or the priciest assigned one if they haven't submitted yet. The banner shows when balance < usual_fee, and its button opens the wallet dialog.
+- Daily report: each day row has rejected, fees_collected, refunds and net_fees. The report also has totals for the range, and the service filter applies to fees too.

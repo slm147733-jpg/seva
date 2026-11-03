@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Eye, Loader2, Timer } from "lucide-react";
+import { Ban, CheckCircle2, Circle, Eye, Loader2, Timer } from "lucide-react";
 import { formatDuration, useTick } from "@/lib/live";
 import type { AttachmentOut, FileStatus } from "@/lib/types";
 
@@ -7,6 +7,7 @@ const META: Record<FileStatus, { label: string; cls: string; icon: typeof Circle
   seen: { label: "Seen", cls: "bg-sky-50 text-sky-800 border-sky-200", icon: Eye },
   processing: { label: "Processing", cls: "bg-amber-100 text-amber-900 border-amber-300", icon: Loader2 },
   generated: { label: "Generated", cls: "bg-green-100 text-green-800 border-green-300", icon: CheckCircle2 },
+  rejected: { label: "Rejected", cls: "bg-red-50 text-red-700 border-red-200", icon: Ban },
 };
 
 export const STATUS_LABELS: Record<FileStatus, string> = {
@@ -14,6 +15,7 @@ export const STATUS_LABELS: Record<FileStatus, string> = {
   seen: META.seen.label,
   processing: META.processing.label,
   generated: META.generated.label,
+  rejected: META.rejected.label,
 };
 
 export function StatusBadge({ status, testId }: { status: FileStatus; testId?: string }) {
@@ -30,11 +32,18 @@ export function StatusBadge({ status, testId }: { status: FileStatus; testId?: s
   );
 }
 
-// Timer runs from the moment the user submits (every status) and freezes at Generated.
+// Timer runs from the moment the user submits (every status) and freezes at Generated / Rejected.
 export function StatusTimer({ a, testId }: { a: AttachmentOut; testId?: string }) {
-  const live = a.status !== "generated";
+  const live = a.status !== "generated" && a.status !== "rejected";
   const now = useTick(live);
   const start = Date.parse(a.created_at);
+  if (a.status === "rejected" && a.rejected_at) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-xs text-red-700" data-testid={testId}>
+        <Timer className="size-3.5" /> Stopped {formatDuration(Date.parse(a.rejected_at) - start)}
+      </span>
+    );
+  }
   if (a.status === "generated" && a.generated_at) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-xs text-green-800" data-testid={testId}>

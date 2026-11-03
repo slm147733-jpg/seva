@@ -37,7 +37,10 @@ async def _payment_info() -> PaymentInfo:
     )
 
 
-async def apply_txn(user: dict, kind: str, amount: float, reason: str, by: str, attachment_id: Optional[str] = None) -> WalletTxn:
+async def apply_txn(
+    user: dict, kind: str, amount: float, reason: str, by: str, attachment_id: Optional[str] = None,
+    category: str = "adjust", service_id: Optional[str] = None,
+) -> WalletTxn:
     """Atomically change the balance. A debit fails with 402 if the balance is too low."""
     amount = round(amount, 2)
     if kind == "credit":
@@ -58,10 +61,27 @@ async def apply_txn(user: dict, kind: str, amount: float, reason: str, by: str, 
     txn = WalletTxn(
         id=str(uuid.uuid4()), user_id=user["id"], user_name=doc["name"], user_mobile=doc["mobile"], type=kind,
         amount=amount, reason=reason, balance_after=round(doc.get("wallet_balance", 0), 2), created_by=by,
-        attachment_id=attachment_id, created_at=_now(),
+        attachment_id=attachment_id, category=category, service_id=service_id, created_at=_now(),
     )
     await db.wallet_transactions.insert_one(txn.model_dump())
     return txn
+
+
+async def _usual_fee(user: dict) -> tuple[float, str]:
+    """Fee of the assigned service the user submits most often; else the priciest assigned service."""
+    ids = user.get("service_ids") or []
+    if not ids:
+        return 0, ""
+    services = await db.services.find({"id": {"$in": ids}, "is_active": True, "fee": {"$gt": 0}}, {"_id": 0, "id": 1, "name": 1, "fee": 1}).to_list(200)
+    if not services:
+        return 0, ""
+    used = await db.attachments.aggregate([
+        {"$match": {"user_id": user["id"], "service_id": {"$in": [s["id"] for s in services]}}},
+        {"$group": {"_id": "$service_id", "n": {"$sum": 1}}}, {"$sort": {"n": -1}}, {"$limit": 1},
+    ]).to_list(1)
+    by_id = {s["id"]: s for s in services}
+    pick = by_id[used[0]["_id"]] if used else max(services, key=lambda s: s["fee"])
+    return round(float(pick["fee"]), 2), pick["name"]
 
 
 # ---------- User ----------
@@ -69,7 +89,9 @@ async def apply_txn(user: dict, kind: str, amount: float, reason: str, by: str, 
 async def wallet_me(user: dict = Depends(current_user)):
     txns = await db.wallet_transactions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
     reqs = await db.wallet_requests.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(20)
+    usual_fee, usual_name = await _usual_fee(user)
     return WalletMe(
+        usual_fee=usual_fee, usual_service_name=usual_name,
         balance=round(user.get("wallet_balance", 0) or 0, 2), payment=await _payment_info(),
         transactions=[WalletTxn(**t) for t in txns], requests=[WalletRequest(**r) for r in reqs],
     )
@@ -175,7 +197,7 @@ async def approve(request_id: str, body: ApproveIn, me: dict = Depends(require_a
     user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User no longer exists")
-    await apply_txn(user, "credit", body.amount, f"Payment verified (Txn …{doc['txn_last5']})", me["name"])
+    await apply_txn(user, "credit", body.amount, f"Payment verified (Txn …{doc['txn_last5']})", me["name"], category="topup")
     changes = {"credited_amount": round(body.amount, 2), "admin_note": body.note.strip(), "resolved_at": _now()}
     await db.wallet_requests.update_one({"id": request_id}, {"$set": changes})
     return WalletRequest(**{**doc, **changes, "status": "approved"})

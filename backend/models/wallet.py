@@ -15,6 +15,8 @@ class WalletTxn(BaseModel):
     balance_after: float
     created_by: str
     attachment_id: Optional[str] = None
+    category: Literal["fee", "refund", "topup", "adjust"] = "adjust"
+    service_id: Optional[str] = None
     created_at: datetime
 
 
@@ -49,6 +51,8 @@ class WalletMe(BaseModel):
     payment: PaymentInfo
     transactions: list[WalletTxn]
     requests: list[WalletRequest]
+    usual_fee: float = 0  # fee of the user's most-used (or priciest assigned) service
+    usual_service_name: str = ""
 
 
 class WalletSettingsIn(BaseModel):
