@@ -25,6 +25,15 @@ class WalletRequestIn(BaseModel):
     txn_last5: str = Field(pattern=r"^\d{5}$")
 
 
+class DuplicateRef(BaseModel):
+    request_id: str
+    user_name: str
+    user_mobile: str
+    status: Literal["pending", "approved", "rejected"]
+    credited_amount: Optional[float] = None
+    created_at: datetime
+
+
 class WalletRequest(BaseModel):
     id: str
     user_id: str
@@ -37,6 +46,7 @@ class WalletRequest(BaseModel):
     admin_note: str = ""
     created_at: datetime
     resolved_at: Optional[datetime] = None
+    duplicates: list[DuplicateRef] = []  # other users' claims with the same last-5 digits (admin list only)
 
 
 class PaymentInfo(BaseModel):

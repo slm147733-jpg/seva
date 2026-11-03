@@ -13,7 +13,7 @@ from lib.auth import current_user, require_admin
 from lib.db import db
 from models.user import Ok
 from models.wallet import (
-    AdjustIn, ApproveIn, PaymentInfo, RejectIn, WalletMe, WalletRequest, WalletRequestIn, WalletSettingsIn, WalletTxn,
+    AdjustIn, ApproveIn, DuplicateRef, PaymentInfo, RejectIn, WalletMe, WalletRequest, WalletRequestIn, WalletSettingsIn, WalletTxn,
 )
 
 router = APIRouter(tags=["wallet"])
@@ -175,7 +175,18 @@ async def delete_qr():
 async def list_requests(status: Optional[str] = Query(None, pattern="^(pending|approved|rejected)$")):
     q = {"status": status} if status else {}
     docs = await db.wallet_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(300)
-    return [WalletRequest(**d) for d in docs]
+    # Flag claims whose last-5 digits were also used by a different user (pending or approved).
+    digits = list({d["txn_last5"] for d in docs})
+    others = await db.wallet_requests.find(
+        {"txn_last5": {"$in": digits}, "status": {"$in": ["pending", "approved"]}}, {"_id": 0}
+    ).to_list(2000)
+    out = []
+    for d in docs:
+        dups = [DuplicateRef(request_id=o["id"], user_name=o["user_name"], user_mobile=o["user_mobile"], status=o["status"],
+                             credited_amount=o.get("credited_amount"), created_at=o["created_at"])
+                for o in others if o["txn_last5"] == d["txn_last5"] and o["user_id"] != d["user_id"]]
+        out.append(WalletRequest(**{**d, "duplicates": dups}))
+    return out
 
 
 async def _pending(request_id: str) -> dict:

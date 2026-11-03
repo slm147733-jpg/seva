@@ -55,6 +55,7 @@ export default function ReportsPanel() {
     { key: "refunds-today", label: "Refunded today", value: todayRow ? inr(todayRow.refunds) : "—" },
     { key: "net-today", label: "Net income today", value: todayRow ? inr(todayRow.net_fees) : "—" },
     { key: "net-range", label: `Net income · ${days} days`, value: r ? inr(r.total_net_fees) : "—" },
+    { key: "topups-today", label: `Wallet top-ups today · ${r ? inr(r.total_topups) : "—"} in ${days} days`, value: todayRow ? inr(todayRow.topups) : "—" },
   ];
 
   return (
@@ -105,7 +106,7 @@ export default function ReportsPanel() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 grid-cols-2 lg:grid-cols-4" data-testid="report-money">
+      <div className="mt-4 grid gap-4 grid-cols-2 lg:grid-cols-5" data-testid="report-money">
         {money.map((c, i) => (
           <div
             key={c.key}
@@ -114,7 +115,7 @@ export default function ReportsPanel() {
             data-testid={`report-card-${c.key}`}
           >
             <p className="text-sm text-stone-500">{c.label}</p>
-            <p className={`mt-2 font-mono text-2xl font-bold ${c.key.startsWith("refunds") ? "text-red-700" : "text-green-800"}`} data-testid={`report-value-${c.key}`}>
+            <p className={`mt-2 font-mono text-2xl font-bold ${c.key.startsWith("refunds") ? "text-red-700" : c.key.startsWith("topups") ? "text-sky-800" : "text-green-800"}`} data-testid={`report-value-${c.key}`}>
               {c.value}
             </p>
           </div>
@@ -146,8 +147,8 @@ export default function ReportsPanel() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-stone-200 bg-white overflow-hidden">
-        <Table data-testid="report-table">
+      <div className="mt-6 rounded-2xl border border-stone-200 bg-white overflow-x-auto">
+        <Table data-testid="report-table" className="min-w-[1040px]">
           <TableHeader>
             <TableRow className="bg-stone-50">
               <TableHead>Date</TableHead>
@@ -159,6 +160,7 @@ export default function ReportsPanel() {
               <TableHead className="text-right">Fees collected</TableHead>
               <TableHead className="text-right">Refunded</TableHead>
               <TableHead className="text-right">Net income</TableHead>
+              <TableHead className="text-right">Wallet top-ups</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,6 +177,7 @@ export default function ReportsPanel() {
                 <TableCell className="text-right font-mono text-green-800" data-testid={`report-fees-${d.date}`}>{inr(d.fees_collected)}</TableCell>
                 <TableCell className="text-right font-mono text-red-700" data-testid={`report-refunds-${d.date}`}>{inr(d.refunds)}</TableCell>
                 <TableCell className="text-right font-mono font-semibold" data-testid={`report-net-${d.date}`}>{inr(d.net_fees)}</TableCell>
+                <TableCell className="text-right font-mono text-sky-800" data-testid={`report-topups-${d.date}`}>{inr(d.topups)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

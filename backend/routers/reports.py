@@ -69,6 +69,12 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
         tq["service_id"] = service_id
     async for t in db.wallet_transactions.find(tq, {"_id": 0, "category": 1, "amount": 1, "created_at": 1}):
         (refunds if t.get("category") == "refund" else fees)[_day(t["created_at"])] += t["amount"]
+    # Wallet top-ups (verified QR payments). Older rows have no category, so match the approve reason too.
+    topups = defaultdict(float)
+    async for t in db.wallet_transactions.find({"created_at": {"$gte": start}, "type": "credit", "$or": [
+        {"category": "topup"}, {"category": {"$exists": False}, "reason": {"$regex": "^Payment verified"}},
+    ]}, {"_id": 0, "amount": 1, "created_at": 1}):
+        topups[_day(t["created_at"])] += t["amount"]
     r2 = lambda x: round(x, 2)  # noqa: E731
 
     def avg(xs):
@@ -77,7 +83,8 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
     return DailyReport(
         today=today.isoformat(),
         days=[DayRow(date=k, received=received[k], seen=seen[k], generated=generated[k], avg_minutes=avg(durations[k]),
-                     rejected=rejected[k], fees_collected=r2(fees[k]), refunds=r2(refunds[k]), net_fees=r2(fees[k] - refunds[k]))
+                     rejected=rejected[k], fees_collected=r2(fees[k]), refunds=r2(refunds[k]), net_fees=r2(fees[k] - refunds[k]),
+                     topups=r2(topups[k]))
               for k in keys],
         current=StatusCounts(**counts),
         total_received=len(docs),
@@ -86,6 +93,7 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
         total_fees_collected=r2(sum(fees[k] for k in keys)),
         total_refunds=r2(sum(refunds[k] for k in keys)),
         total_net_fees=r2(sum(fees[k] - refunds[k] for k in keys)),
+        total_topups=r2(sum(topups[k] for k in keys)),
     )
 
 

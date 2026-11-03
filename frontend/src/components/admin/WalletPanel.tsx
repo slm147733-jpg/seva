@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Check, ImagePlus, Trash2, Wallet, X } from "lucide-react";
+import { Check, TriangleAlert, ImagePlus, Trash2, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox as _Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,16 @@ import { PanelHeader } from "./common";
 function RequestRow({ r }: { r: WalletRequest }) {
   const qc = useQueryClient();
   const [amount, setAmount] = useState(r.amount ? String(r.amount) : "");
+  const dup = r.duplicates.length > 0;
+  const [armed, setArmed] = useState(false); // duplicates need a second tap to approve
+  const go = (amt: number) => {
+    if (dup && !armed) {
+      setArmed(true);
+      toast.warning("Same transaction digits used by another user — tap again to approve anyway");
+      return;
+    }
+    approve.mutate(amt);
+  };
   const approve = useMutation({
     mutationFn: (amt: number) => apiPost<WalletRequest>(`/admin/wallet/requests/${r.id}/approve`, { amount: amt, note: "" } satisfies ApproveIn),
     onSuccess: (_, amt) => {
@@ -35,12 +45,27 @@ function RequestRow({ r }: { r: WalletRequest }) {
     onError: (e) => toast.error(errorMessage(e)),
   });
   return (
-    <TableRow data-testid={`wallet-req-row-${r.id}`}>
+    <TableRow data-testid={`wallet-req-row-${r.id}`} className={dup ? "bg-red-50/40" : undefined}>
       <TableCell className="py-2.5">
         <p className="font-medium">{r.user_name}</p>
         <p className="font-mono text-xs text-stone-500">{r.user_mobile}</p>
       </TableCell>
-      <TableCell className="font-mono text-base font-bold tracking-widest" data-testid={`wallet-req-last5-${r.id}`}>…{r.txn_last5}</TableCell>
+      <TableCell data-testid={`wallet-req-last5-${r.id}`}>
+        <span className="font-mono text-base font-bold tracking-widest">…{r.txn_last5}</span>
+        {dup && (
+          <div className="mt-1 max-w-64 rounded-lg border border-red-300 bg-red-50 px-2 py-1.5 text-[11px] leading-snug text-red-800" data-testid={`wallet-req-duplicate-${r.id}`}>
+            <p className="font-bold flex items-center gap-1">
+              <TriangleAlert className="size-3.5" /> Same digits used by another user
+            </p>
+            {r.duplicates.map((d) => (
+              <p key={d.request_id}>
+                {d.user_name} ({d.user_mobile}) · {d.status === "approved" ? `approved ${d.credited_amount ? formatINR(d.credited_amount) : ""}` : "also waiting"} ·{" "}
+                {formatIST(d.created_at)}
+              </p>
+            ))}
+          </div>
+        )}
+      </TableCell>
       <TableCell className="font-mono">{r.amount ? formatINR(r.amount) : <span className="text-xs text-stone-400">not given</span>}</TableCell>
       <TableCell className="text-xs text-stone-500">{formatIST(r.created_at)}</TableCell>
       <TableCell>
@@ -51,13 +76,13 @@ function RequestRow({ r }: { r: WalletRequest }) {
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white"
               disabled={approve.isPending}
-              onClick={() => approve.mutate(r.amount as number)}
+              onClick={() => go(r.amount as number)}
               data-testid={`wallet-req-quick-approve-${r.id}`}
             >
-              <Check className="size-4" /> Approve {formatINR(r.amount)}
+              <Check className="size-4" /> {armed ? "Approve anyway" : `Approve ${formatINR(r.amount)}`}
             </Button>
           ) : null}
-          <Button size="sm" variant={r.amount ? "outline" : "default"} disabled={!(Number(amount) > 0) || approve.isPending} onClick={() => approve.mutate(Number(amount))} data-testid={`wallet-req-approve-${r.id}`}>
+          <Button size="sm" variant={r.amount ? "outline" : "default"} disabled={!(Number(amount) > 0) || approve.isPending} onClick={() => go(Number(amount))} data-testid={`wallet-req-approve-${r.id}`}>
             {r.amount ? "Other amount" : <><Check className="size-4" /> Add</>}
           </Button>
           <Button size="sm" variant="ghost" className="text-red-600" disabled={reject.isPending} onClick={() => reject.mutate()} data-testid={`wallet-req-reject-${r.id}`}>

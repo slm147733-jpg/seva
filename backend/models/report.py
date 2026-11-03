@@ -14,6 +14,7 @@ class DayRow(BaseModel):
     fees_collected: float = 0
     refunds: float = 0
     net_fees: float = 0
+    topups: float = 0  # money users added via verified QR payments that day (not service-filtered)
 
 
 class StatusCounts(BaseModel):
@@ -34,6 +35,7 @@ class DailyReport(BaseModel):
     total_fees_collected: float = 0  # within the selected range
     total_refunds: float = 0
     total_net_fees: float = 0
+    total_topups: float = 0
 
 
 class WhatsAppAlert(BaseModel):

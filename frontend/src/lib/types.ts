@@ -206,6 +206,7 @@ export interface DayRow {
   fees_collected: number;
   refunds: number;
   net_fees: number;
+  topups: number;
 }
 
 export interface StatusCounts {
@@ -226,6 +227,7 @@ export interface DailyReport {
   total_fees_collected: number;
   total_refunds: number;
   total_net_fees: number;
+  total_topups: number;
 }
 
 export interface ServiceIncome {
@@ -283,6 +285,15 @@ export interface WalletRequestIn {
   txn_last5: string;
 }
 
+export interface DuplicateRef {
+  request_id: string;
+  user_name: string;
+  user_mobile: string;
+  status: "pending" | "approved" | "rejected";
+  credited_amount: number | null;
+  created_at: string;
+}
+
 export interface WalletRequest {
   id: string;
   user_id: string;
@@ -295,6 +306,7 @@ export interface WalletRequest {
   admin_note: string;
   created_at: string;
   resolved_at: string | null;
+  duplicates: DuplicateRef[];
 }
 
 export interface PaymentInfo {
