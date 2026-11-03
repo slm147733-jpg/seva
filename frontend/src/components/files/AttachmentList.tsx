@@ -67,6 +67,14 @@ export default function AttachmentList({ items, showUser, onOpen, emptyText, sel
                 >
                   {a.service_name}
                 </span>
+                {a.resubmit_of && (
+                  <span
+                    className="ml-1.5 align-middle rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-900"
+                    data-testid={`attachment-resubmitted-${a.id}`}
+                  >
+                    Resubmitted
+                  </span>
+                )}
               </p>
               <p className="text-xs text-stone-500 truncate">
                 {showUser && (

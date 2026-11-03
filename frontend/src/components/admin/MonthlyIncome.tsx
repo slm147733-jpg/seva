@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy } from "lucide-react";
+import { FileDown, Trophy } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
 import type { MonthlyIncome as Monthly } from "@/lib/types";
@@ -28,6 +28,16 @@ export default function MonthlyIncome() {
         <div>
           <h2 className="font-heading text-xl font-bold">Monthly income by service</h2>
           <p className="text-sm text-stone-500">Wallet fees collected minus refunds, per service. Highest earner first.</p>
+          {m && (
+            <a
+              href={`/api/admin/reports/monthly-income.pdf?month=${m.month}`}
+              download
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-stone-700 transition-colors duration-150"
+              data-testid="monthly-income-download-pdf"
+            >
+              <FileDown className="size-4" /> Download {monthLabel(m.month, true)} PDF
+            </a>
+          )}
         </div>
         <div className="flex flex-wrap gap-1 rounded-full bg-white border border-stone-200 p-1" data-testid="monthly-income-months">
           {months.map((x) => (

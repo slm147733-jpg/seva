@@ -92,10 +92,12 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
         reject_reason=doc.get("reject_reason") or "",
         fee_charged=doc.get("fee_charged") or 0,
         fee_refunded=bool(doc.get("fee_refunded")),
+        resubmit_of=doc.get("resubmit_of"),
+        resubmitted_as=doc.get("resubmitted_as"),
     )
 
 
-async def _create_attachment(user: dict, meta: FileMeta, service: dict, fee_charged: float = 0) -> dict:
+async def _create_attachment(user: dict, meta: FileMeta, service: dict, fee_charged: float = 0, extra: Optional[dict] = None) -> dict:
     now = _now()
     doc = {
         "id": str(uuid.uuid4()),
@@ -117,8 +119,10 @@ async def _create_attachment(user: dict, meta: FileMeta, service: dict, fee_char
         "message_count": 0,
         "fee_charged": fee_charged,
         "fee_refunded": False,
+        **(extra or {}),
     }
     await db.attachments.insert_one(doc)
+    doc.pop("_id", None)
     return doc
 
 
@@ -195,6 +199,48 @@ async def upload_camera(
     fee = await _charge_fee(user, service, 1)
     meta = await _store(pdf, f"camera-{stamp}.pdf", "application/pdf", user["id"])
     return [_to_out(await _create_attachment(user, meta, service, fee), user["role"], now)]
+
+
+@router.post("/attachments/{attachment_id}/resubmit", response_model=AttachmentOut, status_code=201)
+async def resubmit(attachment_id: str, file: UploadFile = File(...), user: dict = Depends(current_user)):
+    """User sends a corrected copy of their rejected file. The fee (refunded on reject) is taken once more."""
+    if user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Only the user who sent the file can resubmit it")
+    doc = await _load_visible(attachment_id, user)
+    if not doc.get("rejected_at"):
+        raise HTTPException(status_code=409, detail="Only rejected files can be resubmitted")
+    data, name, ctype = await _read_valid(file)
+    new_id = str(uuid.uuid4())
+    claimed = await db.attachments.update_one(
+        {"id": attachment_id, "resubmitted_as": None}, {"$set": {"resubmitted_as": new_id}}
+    )
+    if claimed.modified_count == 0:
+        raise HTTPException(status_code=409, detail="A corrected copy was already sent for this file")
+    service = {"id": doc.get("service_id"), "name": doc.get("service_name") or "General", "fee": doc.get("service_fee") or 0}
+    try:
+        fee = round(float(service["fee"]), 2)
+        if fee > 0:
+            await apply_txn(user, "debit", fee, f"Fee: {service['name']} × 1 (resubmit)", "system",
+                            attachment_id=new_id, category="fee", service_id=service["id"])
+    except HTTPException:
+        await db.attachments.update_one({"id": attachment_id}, {"$set": {"resubmitted_as": None}})  # let them retry after topping up
+        raise
+    meta = await _store(data, name, ctype, user["id"])
+    new = await _create_attachment(user, meta, service, fee, extra={
+        "id": new_id, "resubmit_of": attachment_id,
+        "last_event_text": f"{user['name']} resubmitted a corrected copy: {meta.filename}",
+    })
+    now = _now()
+    msg = MessageOut(
+        id=str(uuid.uuid4()), attachment_id=attachment_id, sender_id=user["id"], sender_name=user["name"],
+        sender_role="user", text=f"Corrected copy sent as a new file: {meta.filename}", file=None, is_receipt=False, created_at=now,
+    )
+    await db.attachment_messages.insert_one(msg.model_dump())
+    await db.attachments.update_one({"id": attachment_id}, {
+        "$set": {"last_event_at": now, "last_event_role": "user", "last_event_text": "Corrected copy sent", "unread_admin": True},
+        "$inc": {"message_count": 1},
+    })
+    return _to_out(new, user["role"], now)
 
 
 @router.get("/attachments/{attachment_id}", response_model=AttachmentDetail)

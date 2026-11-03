@@ -38,6 +38,8 @@ class AttachmentOut(BaseModel):
     reject_reason: str = ""
     fee_charged: float = 0  # wallet fee taken for this file at submit
     fee_refunded: bool = False
+    resubmit_of: Optional[str] = None  # this file is a corrected copy of that rejected file
+    resubmitted_as: Optional[str] = None  # set on a rejected file once its corrected copy is sent
 
 
 class AttachmentList(BaseModel):
@@ -81,3 +83,7 @@ class DeleteResult(BaseModel):
 
 class RejectFileIn(BaseModel):
     reason: str = Field(default="", max_length=500)
+
+
+class RejectReasons(BaseModel):
+    reasons: list[str] = Field(max_length=30)

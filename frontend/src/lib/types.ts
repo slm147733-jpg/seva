@@ -144,6 +144,8 @@ export interface AttachmentOut {
   reject_reason: string;
   fee_charged: number;
   fee_refunded: boolean;
+  resubmit_of: string | null;
+  resubmitted_as: string | null;
 }
 
 export interface AttachmentList {
@@ -183,6 +185,10 @@ export interface BulkDelete {
 export interface DeleteResult {
   deleted: number;
   refunded: number;
+}
+
+export interface RejectReasons {
+  reasons: string[];
 }
 
 export interface RejectFileIn {

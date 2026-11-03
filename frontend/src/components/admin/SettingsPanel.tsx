@@ -9,6 +9,7 @@ import { apiPut } from "@/lib/api";
 import { DEFAULT_SITE, errorMessage, useSite } from "@/lib/hooks";
 import type { Settings } from "@/lib/types";
 import { PanelHeader } from "./common";
+import RejectReasonsEditor from "./RejectReasonsEditor";
 
 const FIELDS: { key: keyof Settings; label: string; long?: boolean; hint?: string }[] = [
   { key: "site_name", label: "Site name" },
@@ -83,6 +84,7 @@ export default function SettingsPanel() {
       ) : (
         <SettingsForm key={data?.settings.site_name ?? "x"} initial={data && !isError ? data.settings : DEFAULT_SITE.settings} />
       )}
+      <RejectReasonsEditor />
     </div>
   );
 }

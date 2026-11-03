@@ -9,21 +9,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { apiPost } from "@/lib/api";
 import { errorMessage, formatINR } from "@/lib/hooks";
 import type { AttachmentOut, RejectFileIn } from "@/lib/types";
-
-const QUICK_REASONS = [
-  "Blurry photo",
-  "Wrong document",
-  "Document incomplete",
-  "Details don't match",
-  "Document expired",
-  "Wrong service selected",
-];
+import { useRejectReasons } from "@/components/admin/RejectReasonsEditor";
 
 // Admin-only: reject a submitted file and give the fee back to the user's wallet.
 export default function RejectDialog({ a }: { a: AttachmentOut }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const QUICK_REASONS = useRejectReasons().data?.reasons ?? [];
   const has = (r: string) => reason.split(/\.\s*/).map((x) => x.trim()).includes(r);
   const toggle = (r: string) =>
     setReason((cur) => {

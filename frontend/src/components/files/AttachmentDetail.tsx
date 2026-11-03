@@ -14,6 +14,7 @@ import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
 import MissingDocs from "./MissingDocs";
 import RejectDialog from "./RejectDialog";
+import ResubmitBox from "./ResubmitBox";
 
 function FileChip({ file, tone = "light", testId }: { file: FileMeta; tone?: "light" | "dark"; testId: string }) {
   return (
@@ -194,7 +195,19 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
                   {formatINR(a.fee_charged)} was refunded to the wallet.
                 </p>
               )}
+              {a.resubmitted_as ? (
+                <p className="mt-2 font-semibold text-green-800" data-testid="detail-resubmitted-note">
+                  A corrected copy was sent as a new file.
+                </p>
+              ) : (
+                role === "user" && <ResubmitBox a={a} />
+              )}
             </div>
+          )}
+          {a?.resubmit_of && (
+            <p className="rounded-xl bg-sky-50 border border-sky-200 px-4 py-2.5 text-sm text-sky-900" data-testid="detail-resubmit-of">
+              Corrected copy of an earlier rejected file.
+            </p>
           )}
           {a && (
             <div className="rounded-2xl border border-stone-200 bg-stone-50 overflow-hidden" data-testid="detail-preview">

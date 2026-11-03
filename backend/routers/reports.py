@@ -4,7 +4,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+
+from lib.income_pdf import render_month_pdf
 
 from lib.auth import require_admin
 from lib.db import db
@@ -147,6 +150,19 @@ async def monthly_income(months: int = Query(6, ge=1, le=24)):
         refunds = round(sum(r.refunds for r in rows), 2)
         out.append(MonthIncome(month=k, fees_collected=fees, refunds=refunds, net=round(fees - refunds, 2), services=rows))
     return MonthlyIncome(months=out)
+
+
+@router.get("/reports/monthly-income.pdf")
+async def monthly_income_pdf(month: str = Query(..., pattern=r"^\d{4}-(0[1-9]|1[0-2])$")):
+    today = datetime.now(timezone.utc).astimezone(IST).date()
+    back = (today.year - int(month[:4])) * 12 + today.month - int(month[5:])
+    if not 0 <= back < 24:
+        raise HTTPException(status_code=400, detail="Pick a month from the last 24 months")
+    data = (await monthly_income(months=back + 1)).months[-1]
+    site = await db.settings.find_one({"key": "site"}, {"_id": 0}) or {}
+    pdf = render_month_pdf(data, site.get("site_name") or "Sevakendra", datetime.now(timezone.utc).astimezone(IST))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="income-by-service-{month}.pdf"'})
 
 
 @router.get("/whatsapp-alerts", response_model=list[WhatsAppAlert])
