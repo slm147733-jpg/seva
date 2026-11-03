@@ -30,26 +30,22 @@ export function StatusBadge({ status, testId }: { status: FileStatus; testId?: s
   );
 }
 
-// Processing: live elapsed time since processing began. Generated: frozen total.
+// Timer runs from the moment the user submits (every status) and freezes at Generated.
 export function StatusTimer({ a, testId }: { a: AttachmentOut; testId?: string }) {
-  const live = a.status === "processing";
+  const live = a.status !== "generated";
   const now = useTick(live);
-  if (a.status === "processing" && a.processing_at) {
-    return (
-      <span className="inline-flex items-center gap-1 font-mono text-xs text-amber-800" data-testid={testId}>
-        <Timer className="size-3.5" /> {formatDuration(now - Date.parse(a.processing_at))}
-      </span>
-    );
-  }
+  const start = Date.parse(a.created_at);
   if (a.status === "generated" && a.generated_at) {
-    const gen = Date.parse(a.generated_at);
-    const proc = a.processing_at ? Date.parse(a.processing_at) : null;
-    const start = proc && proc < gen ? proc : a.seen_at ? Date.parse(a.seen_at) : Date.parse(a.created_at);
     return (
       <span className="inline-flex items-center gap-1 font-mono text-xs text-green-800" data-testid={testId}>
-        <Timer className="size-3.5" /> Total {formatDuration(gen - start)}
+        <Timer className="size-3.5" /> Total {formatDuration(Date.parse(a.generated_at) - start)}
       </span>
     );
   }
-  return null;
+  const color = a.status === "processing" ? "text-amber-800" : a.status === "seen" ? "text-sky-800" : "text-stone-600";
+  return (
+    <span className={`inline-flex items-center gap-1 font-mono text-xs ${color}`} data-testid={testId}>
+      <Timer className="size-3.5" /> {formatDuration(now - start)}
+    </span>
+  );
 }

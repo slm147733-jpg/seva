@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KeyRound, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { KeyRound, Pencil, Plus, Search, Trash2, Wallet } from "lucide-react";
+import AdjustDialog from "@/components/wallet/AdjustDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,6 +203,7 @@ function ResetPasswordDialog({ mode, onClose }: { mode: Mode; onClose: () => voi
 export default function UsersPanel({ currentAdminId }: { currentAdminId: string }) {
   const qc = useQueryClient();
   const [mode, setMode] = useState<Mode>(null);
+  const [walletUser, setWalletUser] = useState<UserOut | null>(null);
   const [q, setQ] = useState("");
   const { data, isError, isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -257,6 +259,7 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
               <TableHead>Role</TableHead>
               <TableHead>Services</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Wallet</TableHead>
               <TableHead>Last sign-in</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -298,6 +301,21 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
                       <span className={`size-1.5 rounded-full ${u.is_active ? "bg-green-600" : "bg-stone-500"}`} />
                       {u.is_active ? "Active" : "Inactive"}
                     </button>
+                  </TableCell>
+                  <TableCell data-testid={`user-wallet-${u.mobile}`}>
+                    {u.role === "user" ? (
+                      <button
+                        type="button"
+                        onClick={() => setWalletUser(u)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-mono text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors"
+                        data-testid={`user-wallet-button-${u.mobile}`}
+                        title="Add / remove money"
+                      >
+                        <Wallet className="size-3.5" /> ₹{(u.wallet_balance ?? 0).toLocaleString("en-IN")}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-stone-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-stone-500">{formatIST(u.last_login)}</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
@@ -342,7 +360,7 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
             })}
             {!isLoading && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-stone-500" data-testid="users-empty">
+                <TableCell colSpan={8} className="py-10 text-center text-stone-500" data-testid="users-empty">
                   No users found.
                 </TableCell>
               </TableRow>
@@ -354,6 +372,7 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
         <UserFormDialog key={mode.kind === "edit" ? mode.user.id : "new"} mode={mode} onClose={() => setMode(null)} />
       )}
       {mode?.kind === "reset" && <ResetPasswordDialog key={mode.user.id} mode={mode} onClose={() => setMode(null)} />}
+      <AdjustDialog key={walletUser?.id ?? "none"} user={walletUser} onClose={() => setWalletUser(null)} />
     </div>
   );
 }

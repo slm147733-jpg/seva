@@ -18,6 +18,7 @@ from lib.auth import current_user
 from lib.db import db
 from lib.whatsapp import queue_receipt_alert
 from routers.services import assignable_service
+from routers.wallet import apply_txn, wallet_settings
 from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult, MissingRequest
 from lib.auth import require_admin
 
@@ -142,6 +143,7 @@ async def upload_files(
     if not files or len(files) > 20:
         raise HTTPException(status_code=400, detail="Attach between 1 and 20 files")
     validated = [await _read_valid(f) for f in files]  # validate all before storing any
+    await _charge_fee(user, service, len(validated))
     now = _now()
     out = []
     for data, name, ctype in validated:
@@ -166,6 +168,7 @@ async def upload_camera(
     stamp = _now().strftime("%Y%m%d-%H%M%S")
     now = _now()
     if mode == "images":
+        await _charge_fee(user, service, len(validated))
         out = []
         for i, (data, _, ctype) in enumerate(validated, 1):
             meta = await _store(data, f"camera-{stamp}-{i}.jpg", ctype, user["id"])
@@ -180,6 +183,7 @@ async def upload_camera(
     pdf = buf.getvalue()
     if len(pdf) > MAX_BYTES:
         raise HTTPException(status_code=400, detail="Combined PDF is larger than 10 MB — capture fewer pages")
+    await _charge_fee(user, service, 1)
     meta = await _store(pdf, f"camera-{stamp}.pdf", "application/pdf", user["id"])
     return [_to_out(await _create_attachment(user, meta, service), user["role"], now)]
 
@@ -364,3 +368,11 @@ async def delete_attachment(attachment_id: str):
 @router.post("/attachments/bulk-delete", response_model=DeleteResult, dependencies=[Depends(require_admin)])
 async def bulk_delete(body: BulkDelete):
     return DeleteResult(deleted=await _purge(body.ids))
+
+
+async def _charge_fee(user: dict, service: dict, count: int) -> None:
+    """Take fee × files from the wallet on every submission (402 if the balance is too low)."""
+    fee = float(service.get("fee") or 0)
+    if fee <= 0 or count <= 0:
+        return
+    await apply_txn(user, "debit", fee * count, f"Fee: {service['name']} × {count}", "system")

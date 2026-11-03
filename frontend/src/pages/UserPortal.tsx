@@ -18,6 +18,7 @@ import AttachmentList from "@/components/files/AttachmentList";
 import AttachmentDetail from "@/components/files/AttachmentDetail";
 import StatusFilter, { applyStatusFilter, type StatusFilterValue } from "@/components/files/StatusFilter";
 import { useLiveAttachments } from "@/lib/live";
+import WalletButton from "@/components/wallet/WalletButton";
 
 function ProfileDialog({ user }: { user: UserOut }) {
   const qc = useQueryClient();
@@ -126,9 +127,12 @@ export default function UserPortal() {
       <header className="sticky top-0 z-40 backdrop-blur-md bg-white/85 border-b border-stone-200/80">
         <div className="mx-auto max-w-6xl px-4 md:px-8 py-3.5 flex items-center justify-between">
           <Brand name="Sevakendra" />
+          <div className="flex items-center gap-2">
+            <WalletButton />
           <Button variant="ghost" onClick={() => endSession()} data-testid="portal-logout-button">
             <LogOut className="size-4" /> Logout
           </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 md:px-8 py-10">

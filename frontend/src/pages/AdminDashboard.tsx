@@ -1,9 +1,14 @@
 import { Link as RouterLink, Navigate, useSearchParams } from "react-router-dom";
-import { BarChart3, Briefcase, ExternalLink, FileText, Inbox, LayoutDashboard, Link2, LogOut, Menu, Settings, Users } from "lucide-react";
+import { BarChart3, Briefcase, ExternalLink, FileText, Inbox, LayoutDashboard, Link2, LogOut, Menu, Settings, Users, Wallet } from "lucide-react";
 import ServicesPanel from "@/components/admin/ServicesPanel";
 import ReportsPanel from "@/components/admin/ReportsPanel";
 import FilesPanel from "@/components/admin/FilesPanel";
-import { useLiveAttachments } from "@/lib/live";
+import { useLiveAttachments, notify } from "@/lib/live";
+import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
+import type { WalletRequest } from "@/lib/types";
+import WalletPanel from "@/components/admin/WalletPanel";
 import { BrandMark } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -20,13 +25,14 @@ const TABS = [
   { id: "files", label: "User files", icon: Inbox },
   { id: "reports", label: "Daily report", icon: BarChart3 },
   { id: "services", label: "Services", icon: Briefcase },
+  { id: "wallet", label: "Wallet", icon: Wallet },
   { id: "users", label: "Users", icon: Users },
   { id: "pages", label: "Pages", icon: FileText },
   { id: "links", label: "Website links", icon: Link2 },
   { id: "settings", label: "Site settings", icon: Settings },
 ];
 
-function SidebarNav({ tab, setTab, prefix, unread }: { tab: string; setTab: (t: string) => void; prefix: string; unread: number }) {
+function SidebarNav({ tab, setTab, prefix, unread, walletPending = 0 }: { tab: string; setTab: (t: string) => void; prefix: string; unread: number; walletPending?: number }) {
   return (
     <nav className="flex flex-col gap-1">
       {TABS.map((t) => (
@@ -48,6 +54,11 @@ function SidebarNav({ tab, setTab, prefix, unread }: { tab: string; setTab: (t: 
               {unread}
             </span>
           )}
+          {t.id === "wallet" && walletPending > 0 && (
+            <span className="ml-auto rounded-full bg-yellow-400 px-2 py-0.5 text-[11px] font-bold text-stone-950" data-testid={`${prefix}-wallet-pending`}>
+              {walletPending}
+            </span>
+          )}
         </button>
       ))}
     </nav>
@@ -62,6 +73,23 @@ export default function AdminDashboard() {
   const live = useLiveAttachments(me.data?.role === "admin" ? "admin" : undefined);
   const files = live.data && !live.isError ? live.data.items : [];
   const unread = files.filter((a) => a.unread).length;
+  const walletReqs = useQuery({
+    queryKey: ["admin-wallet-requests"],
+    queryFn: () => apiGet<WalletRequest[]>("/admin/wallet/requests?status=pending"),
+    enabled: me.data?.role === "admin",
+    refetchInterval: 5000,
+  });
+  const pending = walletReqs.data && !walletReqs.isError ? walletReqs.data : [];
+  const knownReqs = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!walletReqs.data) return;
+    const ids = new Set(walletReqs.data.map((r) => r.id));
+    if (knownReqs.current) {
+      const fresh = walletReqs.data.filter((r) => !knownReqs.current!.has(r.id));
+      if (fresh.length) notify("New wallet payment to verify", `${fresh[0].user_name} · Txn …${fresh[0].txn_last5}${fresh[0].amount ? ` · ₹${fresh[0].amount}` : ""}`);
+    }
+    knownReqs.current = ids;
+  }, [walletReqs.data]);
 
   if (me.isError) return <Navigate to="/login" replace />;
   if (me.data && me.data.role !== "admin") return <Navigate to="/portal" replace />;
@@ -78,7 +106,7 @@ export default function AdminDashboard() {
               <p className="text-[11px] uppercase tracking-wider text-orange-400">Admin console</p>
             </div>
           </div>
-          <SidebarNav tab={tab} setTab={setTab} prefix="sidebar" unread={unread} />
+          <SidebarNav tab={tab} setTab={setTab} prefix="sidebar" unread={unread} walletPending={pending.length} />
         </div>
         <div className="rounded-xl bg-stone-900 p-3">
           <p className="text-sm font-medium text-stone-100 truncate" data-testid="admin-name">
@@ -105,7 +133,7 @@ export default function AdminDashboard() {
               </SheetTrigger>
               <SheetContent side="left" className="bg-stone-950 p-4 border-stone-800">
                 <SheetTitle className="text-stone-50 mb-4">Admin console</SheetTitle>
-                <SidebarNav tab={tab} setTab={setTab} prefix="mobile" unread={unread} />
+                <SidebarNav tab={tab} setTab={setTab} prefix="mobile" unread={unread} walletPending={pending.length} />
                 <Button variant="ghost" className="mt-6 justify-start text-stone-300" onClick={() => endSession()}>
                   <LogOut className="size-4" /> Logout
                 </Button>
@@ -132,6 +160,7 @@ export default function AdminDashboard() {
           {tab === "files" && <FilesPanel adminId={admin?.id ?? ""} items={files} />}
           {tab === "reports" && <ReportsPanel />}
           {tab === "services" && <ServicesPanel />}
+          {tab === "wallet" && <WalletPanel pending={pending} />}
           {tab === "users" && <UsersPanel currentAdminId={admin?.id ?? ""} />}
           {tab === "pages" && <PagesPanel />}
           {tab === "links" && <LinksPanel />}

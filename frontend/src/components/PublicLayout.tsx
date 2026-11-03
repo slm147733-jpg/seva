@@ -4,7 +4,8 @@ import { Menu, Megaphone, Phone, Mail, MapPin } from "lucide-react";
 import { Brand } from "@/components/Brand";
 import { buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { DEFAULT_SITE, useSite } from "@/lib/hooks";
+import { DEFAULT_SITE, useMe, useSite } from "@/lib/hooks";
+import WalletButton from "@/components/wallet/WalletButton";
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
@@ -13,6 +14,7 @@ const navCls = ({ isActive }: { isActive: boolean }) =>
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const { data, isError } = useSite();
+  const me = useMe();
   const site = data && !isError ? data : DEFAULT_SITE;
   const s = site.settings;
 
@@ -40,6 +42,14 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="flex items-center gap-2">
+            {me.data?.role === "user" && !me.isError ? (
+              <>
+                <WalletButton compact />
+                <Link to="/portal" className={buttonVariants({ size: "lg" })} data-testid="header-portal-button">
+                  My portal
+                </Link>
+              </>
+            ) : (
             <Link
               to="/login"
               className={`${buttonVariants({ size: "lg" })} active:scale-[0.98] transition-transform`}
@@ -47,6 +57,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             >
               Login
             </Link>
+            )}
             <Sheet>
               <SheetTrigger
                 className="md:hidden p-2 rounded-lg hover:bg-stone-100"

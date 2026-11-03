@@ -42,9 +42,7 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
             seen[_day(s)] += 1
         if g:
             generated[_day(g)] += 1
-            proc = s + PROCESSING_AFTER if s else None
-            start = proc if proc and proc < g else (s or created)  # same rule as the on-screen timer
-            mins = (g - start).total_seconds() / 60
+            mins = (g - created).total_seconds() / 60  # timer runs from submission, same as on screen
             durations[_day(g)].append(mins)
             all_durations.append(mins)
             counts["generated"] += 1

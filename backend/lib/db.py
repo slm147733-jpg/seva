@@ -52,6 +52,15 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("attachment_id", ASCENDING), ("created_at", ASCENDING)], name="attachment_created"),
     ],
     "whatsapp_alerts": [IndexModel([("created_at", DESCENDING)], name="created_desc")],
+    "wallet_transactions": [
+        IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="user_created"),
+        IndexModel([("created_at", DESCENDING)], name="created_desc"),
+    ],
+    "wallet_requests": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("user_id", ASCENDING), ("status", ASCENDING)], name="user_status"),
+        IndexModel([("status", ASCENDING), ("created_at", DESCENDING)], name="status_created"),
+    ],
     "services": [
         IndexModel([("id", ASCENDING)], name="id", unique=True),
         IndexModel([("name", ASCENDING)], name="name"),

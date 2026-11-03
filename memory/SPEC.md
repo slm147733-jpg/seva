@@ -19,7 +19,7 @@
 - settings {key:"site", site_name, tagline, hero_title, hero_subtitle, announcement, helpline, email, address}
 
 ## Seed (`python backend/seed.py`, idempotent)
-Settings; pages about/services/contact; 4 links (3 audience both, "National Scholarship Portal" users-only). Owner admin 7396406422 / Raju@14773 (upserted; password re-applied on each run).
+Settings; pages about/services/contact; 4 links (3 audience both, "National Scholarship Portal" users-only). Owner admin 7396406422 (upserted; password set only on first insert, so an owner-changed password is never overwritten).
 
 ## User files & receipts (attachments)
 - User uploads PDF/JPG/JPEG/PNG (≤10 MB each, up to 20 per request) via "Attach files" or the camera dialog (continuous capture → "Save as one PDF" (server combines with Pillow) or "Save as images"). Each file = one attachment (loose files, no grouping).
@@ -46,6 +46,13 @@ Settings; pages about/services/contact; 4 links (3 audience both, "National Scho
 - User picks a service (required) in UploadBar from GET /api/services/mine (assigned + active only). POST /attachments and /attachments/camera require form field service_id; the server checks it is assigned to the caller and active, otherwise 403 (or 422 if missing). Attachments store service_id + service_name (snapshot); older files show "General".
 
 - Missing documents request: in the detail sheet the admin ticks items from the service's current required_documents (detail response field service_required_documents) plus custom items and an optional note → POST /api/attachments/{id}/missing {documents, note} (admin only; an empty list clears the request). This posts a thread message, sets attachment.missing_documents, keeps missing_resolved only for items still requested, and makes the user unread → live toast and chime. The user sees a checklist (testid missing-user-checklist) with an Upload button per item → POST messages with for_document=<doc> plus a file, which adds the doc to missing_resolved. for_document must be one of the requested items, user only, with a file, otherwise 400. File rows show a "N documents needed" or "Documents sent" badge.
+
+## Wallet
+- users.wallet_balance. Collections: wallet_transactions {id, user_id, type credit|debit, amount, reason, balance_after, created_by (admin name or "system"), created_at}; wallet_requests {id, user_id, amount?, txn_last5 (5 digits), status pending|approved|rejected, credited_amount, admin_note}. settings key "wallet" {upi_id, payee_name, qr_file_id}.
+- User: the WalletButton chip (balance) sits in the portal header and in the public header when a user is logged in. The dialog shows a UPI QR built from the admin's UPI ID (amount pre-filled if typed) and/or the uploaded shop QR image (toggle). The user enters an optional amount plus the last 5 digits → POST /api/wallet/requests (409 on a duplicate txn, max 5 pending). GET /api/wallet/me is polled every 5s; a toast and chime play on a credit or rejection.
+- Admin: Wallet tab (/admin?tab=wallet): pending payments (approve with an editable amount → credit; reject), payment settings (UPI ID + payee, QR image upload/remove), user balance cards with Add/Remove, an activity log. The Users table has a Wallet column button that opens the same Add/Remove dialog. Sidebar badge plus chime on a new pending payment. API under /api/admin/wallet/*. Debits are atomic and return 402 if the balance is too low.
+- Submit flow: in the user's UploadBar, files and camera batches are staged ("Ready to submit") and the total fee is shown. Submit uploads them and the server ALWAYS charges fee × files from the wallet (camera PDF = 1 file); 402 "Insufficient wallet balance" if too low, and the button is disabled when the balance is short. The deduct_fees setting is no longer used.
+- Timer: counts from created_at (submission) in every status until Generated, then freezes at generated_at − created_at. The daily-report avg_minutes uses the same rule.
 
 ## API (all under /api)
 auth: GET setup-status, POST setup, POST login, POST logout, GET/PUT me, POST me/password, GET me/links

@@ -44,8 +44,10 @@ async def main() -> None:
     await db.users.update_one(
         {"mobile": ADMIN_MOBILE},
         {
-            "$set": {"password_hash": hash_password(ADMIN_PASSWORD), "role": "admin", "is_active": True},
-            "$setOnInsert": {"id": str(uuid.uuid4()), "name": "Raju", "created_at": now, "last_login": None},
+            "$set": {"role": "admin", "is_active": True},
+            # Password only on first creation — never overwrite a password the owner has changed.
+            "$setOnInsert": {"id": str(uuid.uuid4()), "name": "Raju", "created_at": now, "last_login": None,
+                             "password_hash": hash_password(ADMIN_PASSWORD)},
         },
         upsert=True,
     )

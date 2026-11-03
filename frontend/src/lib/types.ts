@@ -11,6 +11,7 @@ export interface UserOut {
   created_at: string;
   last_login: string | null;
   service_ids: string[];
+  wallet_balance: number;
 }
 
 export interface SetupStatus {
@@ -214,4 +215,73 @@ export interface WhatsAppAlert {
   status: "not_connected" | "sent" | "failed";
   detail: string;
   created_at: string;
+}
+
+// backend/models/wallet.py
+export interface WalletTxn {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_mobile: string;
+  type: "credit" | "debit";
+  amount: number;
+  reason: string;
+  balance_after: number;
+  created_by: string;
+  attachment_id: string | null;
+  created_at: string;
+}
+
+export interface WalletRequestIn {
+  amount: number | null;
+  txn_last5: string;
+}
+
+export interface WalletRequest {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_mobile: string;
+  amount: number | null;
+  txn_last5: string;
+  status: "pending" | "approved" | "rejected";
+  credited_amount: number | null;
+  admin_note: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface PaymentInfo {
+  upi_id: string;
+  payee_name: string;
+  has_qr_image: boolean;
+  deduct_fees: boolean;
+}
+
+export interface WalletMe {
+  balance: number;
+  payment: PaymentInfo;
+  transactions: WalletTxn[];
+  requests: WalletRequest[];
+}
+
+export interface WalletSettingsIn {
+  upi_id: string;
+  payee_name: string;
+  deduct_fees: boolean;
+}
+
+export interface AdjustIn {
+  amount: number;
+  direction: "add" | "remove";
+  reason: string;
+}
+
+export interface ApproveIn {
+  amount: number;
+  note: string;
+}
+
+export interface RejectIn {
+  note: string;
 }

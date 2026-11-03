@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     service_ids: list[str] = []
+    wallet_balance: float = 0
 
 
 class SetupStatus(BaseModel):
