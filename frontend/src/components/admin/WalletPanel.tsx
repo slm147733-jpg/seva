@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, CreditCard, Wallet, X } from "lucide-react";
+import { Check, CheckCircle2, CreditCard, PlugZap, Wallet, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox as _Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import AdjustDialog, { invalidateWallet } from "@/components/wallet/AdjustDialog";
 import { apiGet, apiPost } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
-import type { ApproveIn, PaymentsStatus, RejectIn, UserOut, WalletRequest, WalletTxn } from "@/lib/types";
+import type { ApproveIn, ConnectionTest, PaymentsStatus, RejectIn, UserOut, WalletRequest, WalletTxn } from "@/lib/types";
 import { PanelHeader } from "./common";
 
 function RequestRow({ r }: { r: WalletRequest }) {
@@ -58,6 +58,11 @@ function RequestRow({ r }: { r: WalletRequest }) {
 function RazorpayCard() {
   const { data } = useQuery({ queryKey: ["payments-status"], queryFn: () => apiGet<PaymentsStatus>("/admin/payments/status") });
   const ok = data?.configured;
+  const test = useMutation({
+    mutationFn: () => apiPost<ConnectionTest>("/admin/payments/test"),
+    onError: (e) => toast.error(errorMessage(e, "Could not run the test")),
+  });
+  const result = test.data;
   return (
     <div
       className={`flex items-start gap-3 rounded-2xl border p-5 ${ok ? "border-green-200 bg-green-50" : "border-amber-300 bg-amber-50"}`}
@@ -72,6 +77,22 @@ function RazorpayCard() {
           Users top up their wallet with UPI, card or net banking through Razorpay. The money is added to their wallet automatically
           after the payment is verified.{data?.mode === "test" && " Test mode: no real money moves."}
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline" disabled={test.isPending} onClick={() => test.mutate()} data-testid="razorpay-test-button">
+            <PlugZap className="size-4" /> {test.isPending ? "Testing…" : "Test connection"}
+          </Button>
+          {result && !test.isPending && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold animate-rise ${
+                result.ok ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"
+              }`}
+              data-testid="razorpay-test-result"
+              data-ok={result.ok}
+            >
+              {result.ok ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />} {result.detail}
+            </span>
+          )}
+        </div>
         {data && (
           <div className="mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2.5" data-testid="razorpay-webhook">
             <p className="font-semibold" data-testid="razorpay-webhook-status">

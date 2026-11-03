@@ -367,3 +367,9 @@ export interface PaymentsStatus {
   webhook_configured: boolean;
   webhook_url: string;
 }
+
+export interface ConnectionTest {
+  ok: boolean;
+  mode: "test" | "live" | "none";
+  detail: string;
+}

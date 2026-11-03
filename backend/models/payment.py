@@ -53,3 +53,9 @@ class OnlineOrder(BaseModel):
     payment_id: str | None = None
     created_at: datetime
     paid_at: datetime | None = None
+
+
+class ConnectionTest(BaseModel):
+    ok: bool
+    mode: Literal["test", "live", "none"]
+    detail: str

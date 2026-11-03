@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from lib.auth import current_user, require_admin
 from lib.db import db
-from models.payment import CreateOrderIn, CreateOrderOut, OnlineOrder, PaymentsStatus, VerifyPaymentIn, VerifyPaymentOut, WebhookAck
+from models.payment import ConnectionTest, CreateOrderIn, CreateOrderOut, OnlineOrder, PaymentsStatus, VerifyPaymentIn, VerifyPaymentOut, WebhookAck
 from routers.wallet import apply_txn
 
 router = APIRouter(tags=["payments"])
@@ -137,3 +137,26 @@ async def payments_status(request: Request):
         return PaymentsStatus(configured=False, mode="none", webhook_configured=webhook, webhook_url=url)
     return PaymentsStatus(configured=True, mode="live" if key_id.startswith("rzp_live_") else "test",
                           webhook_configured=webhook, webhook_url=url)
+
+
+@router.post("/admin/payments/test", response_model=ConnectionTest, dependencies=[Depends(require_admin)])
+async def test_connection():
+    """Read-only call (list 1 order) to prove the saved key pair is accepted by Razorpay. Creates nothing."""
+    key_id, secret = os.environ.get("RAZORPAY_KEY_ID", "").strip(), os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
+    if not key_id or not secret:
+        return ConnectionTest(ok=False, mode="none", detail="No Razorpay keys are saved yet.")
+    mode = "live" if key_id.startswith("rzp_live_") else "test"
+    if not key_id.startswith("rzp_"):
+        return ConnectionTest(ok=False, mode=mode, detail="The Key ID should start with rzp_test_ or rzp_live_. It looks like a different value was saved.")
+    if key_id == secret:
+        return ConnectionTest(ok=False, mode=mode, detail="The Key ID and Key Secret are the same value. Save each in its own box.")
+    client = razorpay.Client(auth=(key_id, secret))
+    try:
+        await run_in_threadpool(client.order.all, {"count": 1})
+    except razorpay.errors.BadRequestError as e:
+        if "auth" in str(e).lower():
+            return ConnectionTest(ok=False, mode=mode, detail="Razorpay refused these keys. They may have been regenerated or deleted. Save the current Key ID and Key Secret.")
+        return ConnectionTest(ok=False, mode=mode, detail=f"Razorpay returned an error: {e}")
+    except Exception:
+        return ConnectionTest(ok=False, mode=mode, detail="Could not reach Razorpay. Check the internet connection and try again.")
+    return ConnectionTest(ok=True, mode=mode, detail=f"Connected. Razorpay accepted the {mode.upper()} keys.")
