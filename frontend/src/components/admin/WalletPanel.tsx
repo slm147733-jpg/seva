@@ -72,6 +72,28 @@ function RazorpayCard() {
           Users top up their wallet with UPI, card or net banking through Razorpay. The money is added to their wallet automatically
           after the payment is verified.{data?.mode === "test" && " Test mode: no real money moves."}
         </p>
+        {data && (
+          <div className="mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2.5" data-testid="razorpay-webhook">
+            <p className="font-semibold" data-testid="razorpay-webhook-status">
+              Backup webhook: {data.webhook_configured ? "on" : "not set up yet"}
+            </p>
+            <p className="text-xs text-stone-600">
+              Credits the wallet even if a user closes the page mid-payment. In Razorpay Dashboard → Webhooks, add this URL with the
+              events <strong>payment.captured</strong> and <strong>order.paid</strong>:
+            </p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <code className="flex-1 truncate rounded bg-stone-100 px-2 py-1 text-xs" data-testid="razorpay-webhook-url">{data.webhook_url}</code>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => navigator.clipboard.writeText(data.webhook_url).then(() => toast.success("Webhook URL copied"))}
+                data-testid="razorpay-webhook-copy"
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

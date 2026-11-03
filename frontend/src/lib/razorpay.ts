@@ -1,4 +1,5 @@
-import type { CreateOrderOut, VerifyPaymentIn } from "./types";
+import { apiPost } from "./api";
+import type { CreateOrderIn, CreateOrderOut, VerifyPaymentIn, VerifyPaymentOut } from "./types";
 
 // Minimal typing for Razorpay Standard Checkout (checkout.js).
 interface RazorpaySuccess {
@@ -74,4 +75,16 @@ export async function openCheckout(order: CreateOrderOut, onFailed: (message: st
     });
     rzp.open();
   });
+}
+
+export type TopUpResult = { paid: true; verified: VerifyPaymentOut } | { paid: false; lastError: string | null };
+
+// Full flow: backend order → Razorpay modal → backend signature check (credits the wallet once).
+export async function topUpOnline(rupees: number, onFailed: (message: string) => void, beforeOpen?: () => void): Promise<TopUpResult> {
+  const paise = Math.max(100, Math.round(rupees * 100));
+  const order = await apiPost<CreateOrderOut>("/create-order", { amount: paise } satisfies CreateOrderIn);
+  beforeOpen?.();
+  const r = await openCheckout(order, onFailed);
+  if (r.kind === "dismissed") return { paid: false, lastError: r.lastError };
+  return { paid: true, verified: await apiPost<VerifyPaymentOut>("/verify-payment", r.payment) };
 }

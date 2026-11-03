@@ -34,6 +34,14 @@ class VerifyPaymentOut(BaseModel):
 class PaymentsStatus(BaseModel):
     configured: bool
     mode: Literal["test", "live", "none"]
+    webhook_configured: bool = False
+    webhook_url: str = ""
+
+
+class WebhookAck(BaseModel):
+    ok: bool
+    credited: float = 0
+    detail: str = ""
 
 
 class OnlineOrder(BaseModel):

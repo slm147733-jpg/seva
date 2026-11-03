@@ -2,17 +2,18 @@
 
 import hashlib
 import hmac
+import json
 import os
 import uuid
 from datetime import datetime, timezone
 
 import razorpay
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
 from lib.auth import current_user, require_admin
 from lib.db import db
-from models.payment import CreateOrderIn, CreateOrderOut, OnlineOrder, PaymentsStatus, VerifyPaymentIn, VerifyPaymentOut
+from models.payment import CreateOrderIn, CreateOrderOut, OnlineOrder, PaymentsStatus, VerifyPaymentIn, VerifyPaymentOut, WebhookAck
 from routers.wallet import apply_txn
 
 router = APIRouter(tags=["payments"])
@@ -30,6 +31,23 @@ def _keys() -> tuple[str, str]:
 def _user_only(user: dict) -> None:
     if user["role"] == "admin":
         raise HTTPException(status_code=403, detail="Admins add money from the Wallet tab")
+
+
+async def _credit_once(order: dict, pid: str, via: str) -> float:
+    """Claim the order once (created → paid) and credit the wallet. Shared by checkout verify and the webhook,
+    so whichever arrives first credits and the other is a no-op."""
+    claimed = await db.razorpay_orders.update_one(
+        {"order_id": order["order_id"], "status": "created"},
+        {"$set": {"status": "paid", "payment_id": pid, "paid_at": datetime.now(timezone.utc), "credited_via": via}},
+    )
+    if claimed.modified_count != 1:
+        return 0.0
+    owner = await db.users.find_one({"id": order["user_id"]}, {"_id": 0})
+    if not owner:
+        return 0.0
+    amount = round(order["amount"] / 100, 2)
+    await apply_txn(owner, "credit", amount, f"Online payment (Razorpay {pid})", "Razorpay", category="topup")
+    return amount
 
 
 @router.post("/create-order", response_model=CreateOrderOut)
@@ -74,22 +92,48 @@ async def verify_payment(body: VerifyPaymentIn, user: dict = Depends(current_use
     order = await db.razorpay_orders.find_one({"order_id": oid, "user_id": user["id"]}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=400, detail="Payment could not be verified")
-    # Claim the order once so a retry or double submit can never credit twice.
-    claimed = await db.razorpay_orders.update_one(
-        {"order_id": oid, "status": "created"},
-        {"$set": {"status": "paid", "payment_id": pid, "paid_at": datetime.now(timezone.utc)}},
-    )
-    credited = 0.0
-    if claimed.modified_count == 1:
-        credited = round(order["amount"] / 100, 2)
-        await apply_txn(user, "credit", credited, f"Online payment (Razorpay {pid})", "Razorpay", category="topup")
+    credited = await _credit_once(order, pid, "checkout")
     fresh = await db.users.find_one({"id": user["id"]}, {"_id": 0, "wallet_balance": 1}) or {}
     return VerifyPaymentOut(success=True, credited=credited, balance=round(fresh.get("wallet_balance", 0) or 0, 2))
 
 
+@router.post("/razorpay/webhook", response_model=WebhookAck)
+async def razorpay_webhook(request: Request):
+    """Backup credit: Razorpay calls this on payment.captured / order.paid even if the user closed the page."""
+    secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "").strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Webhook secret not configured")
+    raw = await request.body()
+    sig = request.headers.get("X-Razorpay-Signature", "")
+    expected = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+    if not sig or not hmac.compare_digest(expected, sig):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    try:
+        event = json.loads(raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    name = event.get("event", "")
+    if name not in ("payment.captured", "order.paid"):
+        return WebhookAck(ok=True, credited=0, detail=f"ignored {name}")
+    payment = ((event.get("payload") or {}).get("payment") or {}).get("entity") or {}
+    oid, pid = payment.get("order_id"), payment.get("id")
+    if not oid or not pid:
+        return WebhookAck(ok=True, credited=0, detail="no order on payment")
+    order = await db.razorpay_orders.find_one({"order_id": oid}, {"_id": 0})
+    if not order:
+        return WebhookAck(ok=True, credited=0, detail="unknown order")  # not ours — ack so Razorpay stops retrying
+    if int(payment.get("amount") or 0) != int(order["amount"]):
+        return WebhookAck(ok=True, credited=0, detail="amount mismatch")
+    return WebhookAck(ok=True, credited=await _credit_once(order, pid, "webhook"))
+
+
 @router.get("/admin/payments/status", response_model=PaymentsStatus, dependencies=[Depends(require_admin)])
-async def payments_status():
+async def payments_status(request: Request):
     key_id, secret = os.environ.get("RAZORPAY_KEY_ID", "").strip(), os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
+    base = request.headers.get("origin") or os.environ.get("APP_URL", "").rstrip("/")
+    webhook = bool(os.environ.get("RAZORPAY_WEBHOOK_SECRET", "").strip())
+    url = f"{base}/api/razorpay/webhook" if base else "/api/razorpay/webhook"
     if not key_id or not secret:
-        return PaymentsStatus(configured=False, mode="none")
-    return PaymentsStatus(configured=True, mode="live" if key_id.startswith("rzp_live_") else "test")
+        return PaymentsStatus(configured=False, mode="none", webhook_configured=webhook, webhook_url=url)
+    return PaymentsStatus(configured=True, mode="live" if key_id.startswith("rzp_live_") else "test",
+                          webhook_configured=webhook, webhook_url=url)

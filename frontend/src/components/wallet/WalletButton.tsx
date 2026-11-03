@@ -9,8 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { apiGet, apiPost } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import { notify } from "@/lib/live";
-import type { CreateOrderIn, CreateOrderOut, VerifyPaymentOut, WalletMe, WalletRequest } from "@/lib/types";
-import { openCheckout } from "@/lib/razorpay";
+import type { WalletMe, WalletRequest } from "@/lib/types";
+import { topUpOnline } from "@/lib/razorpay";
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
@@ -65,20 +65,13 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
   const valid = amt >= 1 && amt <= 1_000_000;
 
   const pay = useMutation({
-    mutationFn: async () => {
-      const order = await apiPost<CreateOrderOut>("/create-order", { amount: amt * 100 } satisfies CreateOrderIn);
-      setOpen(false); // let the Razorpay modal take focus
-      const r = await openCheckout(order, (msg) => toast.error(msg));
-      if (r.kind === "dismissed") return { cancelled: true as const, lastError: r.lastError };
-      const v = await apiPost<VerifyPaymentOut>("/verify-payment", r.payment);
-      return { cancelled: false as const, v };
-    },
+    mutationFn: () => topUpOnline(amt, (msg) => toast.error(msg), () => setOpen(false)), // close ours so Razorpay's modal takes focus
     onSuccess: (r) => {
-      if (r.cancelled) {
+      if (!r.paid) {
         toast.info(r.lastError ? "Payment not completed — no money was added" : "Payment cancelled");
         return;
       }
-      toast.success(`${rupees(r.v.credited)} added · Balance ${rupees(r.v.balance)}`);
+      toast.success(`${rupees(r.verified.credited)} added · Balance ${rupees(r.verified.balance)}`);
       setAmount("");
       qc.invalidateQueries({ queryKey: ["wallet-me"] });
     },

@@ -364,4 +364,6 @@ export interface VerifyPaymentOut {
 export interface PaymentsStatus {
   configured: boolean;
   mode: "test" | "live" | "none";
+  webhook_configured: boolean;
+  webhook_url: string;
 }
