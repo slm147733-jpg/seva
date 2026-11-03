@@ -24,6 +24,7 @@ import { PanelHeader } from "./common";
 function invalidateFileQueries(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["attachments"] });
   qc.invalidateQueries({ queryKey: ["daily-report"] });
+      qc.invalidateQueries({ queryKey: ["monthly-income"] });
   qc.invalidateQueries({ queryKey: ["whatsapp-alerts"] });
 }
 

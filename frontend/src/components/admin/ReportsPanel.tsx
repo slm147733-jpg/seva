@@ -8,6 +8,7 @@ import { formatIST } from "@/lib/hooks";
 import type { DailyReport, Service, WhatsAppAlert } from "@/lib/types";
 import ServiceSelect from "@/components/files/ServiceSelect";
 import { PanelHeader } from "./common";
+import MonthlyIncome from "./MonthlyIncome";
 
 const RANGES = [7, 14, 30];
 
@@ -179,6 +180,8 @@ export default function ReportsPanel() {
           </TableBody>
         </Table>
       </div>
+
+      <MonthlyIncome />
 
       <div className="mt-8" data-testid="whatsapp-log">
         <h2 className="font-heading text-xl font-bold flex items-center gap-2">

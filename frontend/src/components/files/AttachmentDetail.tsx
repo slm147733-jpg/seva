@@ -171,6 +171,7 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
                         qc.removeQueries({ queryKey: ["attachment", a.id] });
                         qc.invalidateQueries({ queryKey: ["attachments"] });
                         qc.invalidateQueries({ queryKey: ["daily-report"] });
+      qc.invalidateQueries({ queryKey: ["monthly-income"] });
                         qc.invalidateQueries({ queryKey: ["whatsapp-alerts"] });
                       } catch (e) {
                         toast.error(errorMessage(e, "Could not delete"));

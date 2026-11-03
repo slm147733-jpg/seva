@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lib.auth import require_admin
 from lib.db import db
-from models.report import DailyReport, DayRow, StatusCounts, WhatsAppAlert
+from models.report import DailyReport, DayRow, MonthIncome, MonthlyIncome, ServiceIncome, StatusCounts, WhatsAppAlert
 
 router = APIRouter(prefix="/admin", tags=["reports"], dependencies=[Depends(require_admin)])
 IST = ZoneInfo("Asia/Kolkata")
@@ -84,6 +84,69 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
         total_refunds=r2(sum(refunds[k] for k in keys)),
         total_net_fees=r2(sum(fees[k] - refunds[k] for k in keys)),
     )
+
+
+@router.get("/reports/monthly-income", response_model=MonthlyIncome)
+async def monthly_income(months: int = Query(6, ge=1, le=24)):
+    """Wallet fees and refunds per IST month, broken down by service."""
+    today = datetime.now(timezone.utc).astimezone(IST).date()
+    y, m = today.year, today.month
+    keys = []
+    for _ in range(months):
+        keys.append(f"{y:04d}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    start = datetime(int(keys[-1][:4]), int(keys[-1][5:]), 1, tzinfo=IST).astimezone(timezone.utc)
+    q = {"created_at": {"$gte": start}, "$or": [
+        {"category": {"$in": ["fee", "refund"]}},
+        {"category": {"$exists": False}, "type": "debit", "created_by": "system", "reason": {"$regex": "^Fee:"}},
+    ]}
+    agg: dict = defaultdict(lambda: {"fees": 0.0, "refunds": 0.0, "files": 0})
+    legacy_names: dict[str, str] = {}
+    async for t in db.wallet_transactions.find(q, {"_id": 0}):
+        month = _utc(t["created_at"]).astimezone(IST).strftime("%Y-%m")
+        sid = t.get("service_id")
+        if not sid:  # older fee rows: recover the service name from the reason text "Fee: <name> × <n>"
+            name = t.get("reason", "")[4:].rsplit(" × ", 1)[0].strip() or "Other"
+            sid = f"legacy:{name}"
+            legacy_names[sid] = name
+        row = agg[(month, sid)]
+        if t.get("category") == "refund":
+            row["refunds"] += t["amount"]
+        else:
+            row["fees"] += t["amount"]
+            try:
+                row["files"] += int(t.get("reason", "").rsplit("× ", 1)[1])
+            except (IndexError, ValueError):
+                row["files"] += 1
+    real_ids = {sid for (_, sid) in agg if not sid.startswith("legacy:")}
+    names = {s["id"]: s["name"] async for s in db.services.find({"id": {"$in": list(real_ids)}}, {"_id": 0, "id": 1, "name": 1})}
+    missing = real_ids - names.keys()
+    if missing:  # deleted services: fall back to the name snapshotted on their files
+        async for a in db.attachments.find({"service_id": {"$in": list(missing)}}, {"_id": 0, "service_id": 1, "service_name": 1}):
+            names.setdefault(a["service_id"], a.get("service_name") or "Deleted service")
+    # Merge legacy rows into a real service with the same name when one exists.
+    by_name = {v: k for k, v in names.items()}
+    merged: dict = defaultdict(lambda: {"fees": 0.0, "refunds": 0.0, "files": 0})
+    for (month, sid), v in agg.items():
+        key = by_name.get(legacy_names[sid], sid) if sid in legacy_names else sid
+        for f in ("fees", "refunds", "files"):
+            merged[(month, key)][f] += v[f]
+    out = []
+    for k in keys:
+        rows = [
+            ServiceIncome(
+                service_id=None if sid.startswith("legacy:") else sid,
+                service_name=legacy_names.get(sid) or names.get(sid, "Deleted service"),
+                files=v["files"], fees_collected=round(v["fees"], 2), refunds=round(v["refunds"], 2),
+                net=round(v["fees"] - v["refunds"], 2),
+            )
+            for (month, sid), v in merged.items() if month == k
+        ]
+        rows.sort(key=lambda r: r.net, reverse=True)
+        fees = round(sum(r.fees_collected for r in rows), 2)
+        refunds = round(sum(r.refunds for r in rows), 2)
+        out.append(MonthIncome(month=k, fees_collected=fees, refunds=refunds, net=round(fees - refunds, 2), services=rows))
+    return MonthlyIncome(months=out)
 
 
 @router.get("/whatsapp-alerts", response_model=list[WhatsAppAlert])

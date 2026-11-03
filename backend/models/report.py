@@ -46,3 +46,24 @@ class WhatsAppAlert(BaseModel):
     status: Literal["not_connected", "sent", "failed"]
     detail: str
     created_at: datetime
+
+
+class ServiceIncome(BaseModel):
+    service_id: Optional[str] = None
+    service_name: str
+    files: int  # files charged a fee this month
+    fees_collected: float
+    refunds: float
+    net: float
+
+
+class MonthIncome(BaseModel):
+    month: str  # YYYY-MM (IST)
+    fees_collected: float
+    refunds: float
+    net: float
+    services: list[ServiceIncome]  # sorted by net, highest first
+
+
+class MonthlyIncome(BaseModel):
+    months: list[MonthIncome]  # newest first

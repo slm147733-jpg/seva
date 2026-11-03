@@ -222,6 +222,27 @@ export interface DailyReport {
   total_net_fees: number;
 }
 
+export interface ServiceIncome {
+  service_id: string | null;
+  service_name: string;
+  files: number;
+  fees_collected: number;
+  refunds: number;
+  net: number;
+}
+
+export interface MonthIncome {
+  month: string;
+  fees_collected: number;
+  refunds: number;
+  net: number;
+  services: ServiceIncome[];
+}
+
+export interface MonthlyIncome {
+  months: MonthIncome[];
+}
+
 export interface WhatsAppAlert {
   id: string;
   user_id: string;

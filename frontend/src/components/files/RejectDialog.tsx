@@ -10,11 +10,27 @@ import { apiPost } from "@/lib/api";
 import { errorMessage, formatINR } from "@/lib/hooks";
 import type { AttachmentOut, RejectFileIn } from "@/lib/types";
 
+const QUICK_REASONS = [
+  "Blurry photo",
+  "Wrong document",
+  "Document incomplete",
+  "Details don't match",
+  "Document expired",
+  "Wrong service selected",
+];
+
 // Admin-only: reject a submitted file and give the fee back to the user's wallet.
 export default function RejectDialog({ a }: { a: AttachmentOut }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const has = (r: string) => reason.split(/\.\s*/).map((x) => x.trim()).includes(r);
+  const toggle = (r: string) =>
+    setReason((cur) => {
+      const parts = cur.split(/\.\s*/).map((x) => x.trim()).filter(Boolean);
+      const next = parts.includes(r) ? parts.filter((x) => x !== r) : [...parts, r];
+      return next.join(". ");
+    });
   const refundable = a.fee_charged > 0 && !a.fee_refunded;
 
   const reject = useMutation({
@@ -26,6 +42,7 @@ export default function RejectDialog({ a }: { a: AttachmentOut }) {
       qc.invalidateQueries({ queryKey: ["attachment", a.id] });
       qc.invalidateQueries({ queryKey: ["attachments"] });
       qc.invalidateQueries({ queryKey: ["daily-report"] });
+      qc.invalidateQueries({ queryKey: ["monthly-income"] });
       qc.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (e) => toast.error(errorMessage(e, "Could not reject")),
@@ -55,6 +72,22 @@ export default function RejectDialog({ a }: { a: AttachmentOut }) {
               )}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-wrap gap-2" data-testid="reject-quick-reasons">
+            {QUICK_REASONS.map((r, i) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => toggle(r)}
+                aria-pressed={has(r)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-[background-color,color,transform] duration-150 active:scale-95 ${
+                  has(r) ? "border-red-600 bg-red-600 text-white" : "border-stone-200 bg-white text-stone-700 hover:bg-red-50"
+                }`}
+                data-testid={`reject-quick-reason-${i}`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="reject-reason">Reason (shown to the user)</Label>
             <Textarea
