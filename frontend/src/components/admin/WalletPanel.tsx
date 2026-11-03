@@ -19,9 +19,9 @@ function RequestRow({ r }: { r: WalletRequest }) {
   const qc = useQueryClient();
   const [amount, setAmount] = useState(r.amount ? String(r.amount) : "");
   const approve = useMutation({
-    mutationFn: () => apiPost<WalletRequest>(`/admin/wallet/requests/${r.id}/approve`, { amount: Number(amount), note: "" } satisfies ApproveIn),
-    onSuccess: () => {
-      toast.success(`Added ${formatINR(Number(amount))} to ${r.user_name}'s wallet`);
+    mutationFn: (amt: number) => apiPost<WalletRequest>(`/admin/wallet/requests/${r.id}/approve`, { amount: amt, note: "" } satisfies ApproveIn),
+    onSuccess: (_, amt) => {
+      toast.success(`Added ${formatINR(amt)} to ${r.user_name}'s wallet`);
       invalidateWallet(qc);
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -46,8 +46,19 @@ function RequestRow({ r }: { r: WalletRequest }) {
       <TableCell>
         <div className="flex items-center justify-end gap-2">
           <Input type="number" min={1} placeholder="₹" className="w-24 h-8" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid={`wallet-req-amount-${r.id}`} />
-          <Button size="sm" disabled={!(Number(amount) > 0) || approve.isPending} onClick={() => approve.mutate()} data-testid={`wallet-req-approve-${r.id}`}>
-            <Check className="size-4" /> Add
+          {r.amount ? (
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={approve.isPending}
+              onClick={() => approve.mutate(r.amount as number)}
+              data-testid={`wallet-req-quick-approve-${r.id}`}
+            >
+              <Check className="size-4" /> Approve {formatINR(r.amount)}
+            </Button>
+          ) : null}
+          <Button size="sm" variant={r.amount ? "outline" : "default"} disabled={!(Number(amount) > 0) || approve.isPending} onClick={() => approve.mutate(Number(amount))} data-testid={`wallet-req-approve-${r.id}`}>
+            {r.amount ? "Other amount" : <><Check className="size-4" /> Add</>}
           </Button>
           <Button size="sm" variant="ghost" className="text-red-600" disabled={reject.isPending} onClick={() => reject.mutate()} data-testid={`wallet-req-reject-${r.id}`}>
             <X className="size-4" />

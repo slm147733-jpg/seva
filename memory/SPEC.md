@@ -74,3 +74,5 @@ admin (admin only): users CRUD + /users/{id}/reset-password, GET stats, pages CR
 
 ## Payments
 - Razorpay was removed at the owner's request. Wallet top-ups use the QR flow again: the user scans the UPI/shop QR, enters the last 5 digits of the transaction (and optionally the amount), and the admin verifies and credits it in the Wallet tab. The `razorpay_orders` collection holds only test rows and is unused.
+- Pending payment reminder (admin): the dashboard checks pending QR claims every 5s. A new claim plays a distinct coin chime (playCoin in lib/live.ts) and shows a toast with a "Verify" button that opens the Wallet tab. While claims are waiting, the header has a pulsing yellow pill "N payments to verify", the browser tab title is prefixed "(N)", the sidebar Wallet badge shows the count, and a reminder chime and toast repeat every 2 minutes.
+- Quick approve: when the user typed an amount, the claim row shows a one-tap green "Approve ₹X" button. "Other amount" uses the editable field instead.

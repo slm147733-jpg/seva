@@ -30,6 +30,29 @@ export function playChime(): void {
   }
 }
 
+// Distinct "cash register" triple tone for wallet payments waiting to be verified.
+export function playCoin(): void {
+  try {
+    ctx = ctx ?? new AudioContext();
+    if (ctx.state === "suspended") void ctx.resume();
+    const t = ctx.currentTime;
+    [1046, 1318, 1568].forEach((freq, i) => {
+      const osc = ctx!.createOscillator();
+      const gain = ctx!.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t + i * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.3, t + i * 0.1 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.1 + 0.3);
+      osc.connect(gain).connect(ctx!.destination);
+      osc.start(t + i * 0.1);
+      osc.stop(t + i * 0.1 + 0.32);
+    });
+  } catch {
+    /* audio unavailable */
+  }
+}
+
 export function notify(message: string, description?: string): void {
   playChime();
   toast.info(message, { description });

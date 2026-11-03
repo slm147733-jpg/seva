@@ -3,7 +3,9 @@ import { BarChart3, Briefcase, ExternalLink, FileText, Inbox, LayoutDashboard, L
 import ServicesPanel from "@/components/admin/ServicesPanel";
 import ReportsPanel from "@/components/admin/ReportsPanel";
 import FilesPanel from "@/components/admin/FilesPanel";
-import { useLiveAttachments, notify } from "@/lib/live";
+import { useLiveAttachments, playCoin } from "@/lib/live";
+import { toast } from "sonner";
+import { BellRing } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api";
@@ -86,10 +88,33 @@ export default function AdminDashboard() {
     const ids = new Set(walletReqs.data.map((r) => r.id));
     if (knownReqs.current) {
       const fresh = walletReqs.data.filter((r) => !knownReqs.current!.has(r.id));
-      if (fresh.length) notify("New wallet payment to verify", `${fresh[0].user_name} · Txn …${fresh[0].txn_last5}${fresh[0].amount ? ` · ₹${fresh[0].amount}` : ""}`);
+      if (fresh.length) {
+        playCoin();
+        toast.info(fresh.length === 1 ? "New wallet payment to verify" : `${fresh.length} new wallet payments to verify`, {
+          description: `${fresh[0].user_name} · Txn …${fresh[0].txn_last5}${fresh[0].amount ? ` · ₹${fresh[0].amount}` : ""}`,
+          action: { label: "Verify", onClick: () => setParams({ tab: "wallet" }) },
+        });
+      }
     }
     knownReqs.current = ids;
-  }, [walletReqs.data]);
+  }, [walletReqs.data, setParams]);
+  // Gentle reminder every 2 minutes while anything is still waiting, plus a count in the browser tab title.
+  const pendingCount = walletReqs.data?.length ?? 0;
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\) /, "");
+    document.title = pendingCount ? `(${pendingCount}) ${base}` : base;
+    if (!pendingCount) return;
+    const t = window.setInterval(() => {
+      playCoin();
+      toast.info(`${pendingCount} wallet payment${pendingCount === 1 ? "" : "s"} still waiting`, {
+        action: { label: "Verify", onClick: () => setParams({ tab: "wallet" }) },
+      });
+    }, 120000);
+    return () => {
+      window.clearInterval(t);
+      document.title = base;
+    };
+  }, [pendingCount, setParams]);
 
   if (me.isError) return <Navigate to="/login" replace />;
   if (me.data && me.data.role !== "admin") return <Navigate to="/portal" replace />;
@@ -140,6 +165,17 @@ export default function AdminDashboard() {
               </SheetContent>
             </Sheet>
             <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">Admin</span>
+            {pending.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTab("wallet")}
+                className="relative inline-flex items-center gap-1.5 rounded-full bg-yellow-400 px-3 py-1 text-xs font-bold text-stone-950 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-[transform,box-shadow] duration-200"
+                data-testid="header-wallet-pending"
+              >
+                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-red-500 animate-ping" />
+                <BellRing className="size-3.5" /> {pending.length} payment{pending.length === 1 ? "" : "s"} to verify
+              </button>
+            )}
           </div>
           <RouterLink
             to="/"
