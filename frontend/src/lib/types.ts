@@ -146,6 +146,8 @@ export interface AttachmentOut {
   fee_refunded: boolean;
   resubmit_of: string | null;
   resubmitted_as: string | null;
+  paused_at: string | null;
+  paused_seconds: number;
   receipt_number: string | null;
   receipt_name: string | null;
   receipt_ocr: "pending" | "done" | "not_found" | "failed" | null;

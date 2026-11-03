@@ -40,6 +40,8 @@ class AttachmentOut(BaseModel):
     fee_refunded: bool = False
     resubmit_of: Optional[str] = None  # this file is a corrected copy of that rejected file
     resubmitted_as: Optional[str] = None  # set on a rejected file once its corrected copy is sent
+    paused_at: Optional[datetime] = None  # timer paused while waiting for missing documents
+    paused_seconds: float = 0  # total paused time so far (excluded from work time)
     receipt_number: Optional[str] = None  # read offline (OCR) from the latest receipt
     receipt_name: Optional[str] = None
     receipt_ocr: Optional[Literal["pending", "done", "not_found", "failed"]] = None

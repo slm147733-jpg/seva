@@ -37,7 +37,7 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
     all_durations: list[float] = []
 
     query = {"service_id": service_id} if service_id else {}
-    docs = await db.attachments.find(query, {"_id": 0, "created_at": 1, "seen_at": 1, "generated_at": 1, "rejected_at": 1}).to_list(100000)
+    docs = await db.attachments.find(query, {"_id": 0, "created_at": 1, "seen_at": 1, "generated_at": 1, "rejected_at": 1, "paused_seconds": 1}).to_list(100000)
     for d in docs:
         created, s, g = _utc(d["created_at"]), _utc(d.get("seen_at")), _utc(d.get("generated_at"))
         rj = _utc(d.get("rejected_at"))
@@ -49,7 +49,8 @@ async def daily_report(days: int = Query(14, ge=1, le=90), service_id: str | Non
             counts["rejected"] += 1
         elif g:
             generated[_day(g)] += 1
-            mins = (g - created).total_seconds() / 60  # timer runs from submission, same as on screen
+            # True work time: from submission to receipt, minus time paused waiting for the user's missing documents.
+            mins = max(0.0, (g - created).total_seconds() - float(d.get("paused_seconds") or 0)) / 60
             durations[_day(g)].append(mins)
             all_durations.append(mins)
             counts["generated"] += 1

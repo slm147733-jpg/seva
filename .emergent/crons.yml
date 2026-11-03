@@ -1,0 +1,8 @@
+crons:
+  - name: missing-docs-remind
+    description: "Hourly check that reminds users once a day when requested documents are still missing"
+    cron: "0 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/missing-docs-reminder"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

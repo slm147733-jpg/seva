@@ -1,4 +1,4 @@
-import { Ban, CheckCircle2, Circle, Eye, Loader2, Timer } from "lucide-react";
+import { Ban, CheckCircle2, Circle, Eye, Loader2, Pause, Timer } from "lucide-react";
 import { formatDuration, useTick } from "@/lib/live";
 import type { AttachmentOut, FileStatus } from "@/lib/types";
 
@@ -35,8 +35,17 @@ export function StatusBadge({ status, testId }: { status: FileStatus; testId?: s
 // Timer runs from the moment the user submits (every status) and freezes at Generated / Rejected.
 export function StatusTimer({ a, testId }: { a: AttachmentOut; testId?: string }) {
   const live = a.status !== "generated" && a.status !== "rejected";
-  const now = useTick(live);
-  const start = Date.parse(a.created_at);
+  const now = useTick(live && !a.paused_at);
+  // Time spent waiting for the user's missing documents is excluded from work time.
+  const pausedMs = a.paused_seconds * 1000;
+  const start = Date.parse(a.created_at) + pausedMs;
+  if (live && a.paused_at) {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-xs text-stone-500" data-testid={testId} data-paused="true" title="Paused while waiting for missing documents">
+        <Pause className="size-3.5" /> Paused {formatDuration(Date.parse(a.paused_at) - start)}
+      </span>
+    );
+  }
   if (a.status === "rejected" && a.rejected_at) {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-xs text-red-700" data-testid={testId}>

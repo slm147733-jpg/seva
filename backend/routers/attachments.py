@@ -97,10 +97,26 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
         fee_refunded=bool(doc.get("fee_refunded")),
         resubmit_of=doc.get("resubmit_of"),
         resubmitted_as=doc.get("resubmitted_as"),
+        paused_at=_utc(doc.get("paused_at")),
+        paused_seconds=round(float(doc.get("paused_seconds") or 0), 1),
         receipt_number=doc.get("receipt_number"),
         receipt_name=doc.get("receipt_name"),
         receipt_ocr=doc.get("receipt_ocr"),
     )
+
+
+def pause_changes(doc: dict, now: datetime, waiting: bool) -> dict:
+    """Pause the timer while requested documents are outstanding; resume (adding the gap to paused_seconds) otherwise."""
+    paused = _utc(doc.get("paused_at"))
+    if waiting and not paused:
+        return {"paused_at": now}
+    if not waiting and paused:
+        return {"paused_at": None, "paused_seconds": float(doc.get("paused_seconds") or 0) + (now - paused).total_seconds()}
+    return {}
+
+
+def _still_missing(missing: list, resolved: list) -> bool:
+    return bool(set(missing or []) - set(resolved or []))
 
 
 async def _create_attachment(user: dict, meta: FileMeta, service: dict, fee_charged: float = 0, extra: Optional[dict] = None) -> dict:
@@ -347,9 +363,12 @@ async def post_message(
         changes["seen_at"] = now
     if msg.is_receipt and not doc.get("generated_at"):
         changes["generated_at"] = now  # receipt upload freezes the timer
-    await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
+        changes.update(pause_changes(doc, now, False))
     if for_document:
-        await db.attachments.update_one({"id": attachment_id}, {"$addToSet": {"missing_resolved": for_document}})
+        resolved = list(dict.fromkeys([*(doc.get("missing_resolved") or []), for_document]))
+        changes["missing_resolved"] = resolved
+        changes.update(pause_changes(doc, now, _still_missing(doc.get("missing_documents") or [], resolved) and not doc.get("generated_at")))
+    await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
     if msg.is_receipt:
         await db.attachments.update_one({"id": attachment_id}, {"$set": {"receipt_ocr": "pending"}})
         asyncio.create_task(_read_receipt(attachment_id, msg.id, data, meta.content_type))
@@ -408,6 +427,8 @@ async def request_missing(attachment_id: str, body: MissingRequest, admin: dict 
     changes = {
         "missing_documents": docs,
         "missing_resolved": [d for d in docs if d in prev_resolved],  # keep ticks for items still requested
+        "missing_requested_at": now,
+        "missing_reminded_at": None,
         "last_event_at": now,
         "last_event_role": "admin",
         "last_event_text": event,
@@ -415,6 +436,8 @@ async def request_missing(attachment_id: str, body: MissingRequest, admin: dict 
     }
     if not doc.get("seen_at"):
         changes["seen_at"] = now
+    finished = bool(doc.get("generated_at") or doc.get("rejected_at"))
+    changes.update(pause_changes(doc, now, not finished and _still_missing(docs, changes["missing_resolved"])))
     await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
     doc.update(changes)
     doc["message_count"] = doc.get("message_count", 0) + 1
@@ -504,6 +527,7 @@ async def reject_attachment(attachment_id: str, body: RejectFileIn, admin: dict 
                "last_event_text": "File rejected" + (f" · ₹{refunded:g} refunded" if refunded else "")}
     if not doc.get("seen_at"):
         changes["seen_at"] = now
+    changes.update(pause_changes(doc, now, False))
     await db.attachments.update_one({"id": attachment_id}, {"$set": changes, "$inc": {"message_count": 1}})
     doc.update(changes, fee_refunded=bool(refunded) or doc.get("fee_refunded"))
     doc["message_count"] = doc.get("message_count", 0) + 1
