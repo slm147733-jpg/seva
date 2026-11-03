@@ -146,6 +146,9 @@ export interface AttachmentOut {
   fee_refunded: boolean;
   resubmit_of: string | null;
   resubmitted_as: string | null;
+  receipt_number: string | null;
+  receipt_name: string | null;
+  receipt_ocr: "pending" | "done" | "not_found" | "failed" | null;
 }
 
 export interface AttachmentList {
@@ -344,4 +347,20 @@ export interface ApproveIn {
 
 export interface RejectIn {
   note: string;
+}
+
+export interface TopUpLeader {
+  user_id: string;
+  user_name: string;
+  user_mobile: string;
+  total: number;
+  count: number;
+  last_at: string;
+}
+
+export interface TopUpLeaderboard {
+  month: string;
+  months: string[];
+  total: number;
+  leaders: TopUpLeader[];
 }

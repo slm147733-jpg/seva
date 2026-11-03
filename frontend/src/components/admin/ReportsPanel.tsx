@@ -9,6 +9,7 @@ import type { DailyReport, Service, WhatsAppAlert } from "@/lib/types";
 import ServiceSelect from "@/components/files/ServiceSelect";
 import { PanelHeader } from "./common";
 import MonthlyIncome from "./MonthlyIncome";
+import TopUpLeaderboard from "./TopUpLeaderboard";
 
 const RANGES = [7, 14, 30];
 
@@ -185,6 +186,8 @@ export default function ReportsPanel() {
       </div>
 
       <MonthlyIncome />
+
+      <TopUpLeaderboard />
 
       <div className="mt-8" data-testid="whatsapp-log">
         <h2 className="font-heading text-xl font-bold flex items-center gap-2">

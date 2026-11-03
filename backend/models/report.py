@@ -69,3 +69,19 @@ class MonthIncome(BaseModel):
 
 class MonthlyIncome(BaseModel):
     months: list[MonthIncome]  # newest first
+
+
+class TopUpLeader(BaseModel):
+    user_id: str
+    user_name: str
+    user_mobile: str
+    total: float
+    count: int
+    last_at: datetime
+
+
+class TopUpLeaderboard(BaseModel):
+    month: str  # YYYY-MM (IST)
+    months: list[str]  # selectable months, newest first
+    total: float
+    leaders: list[TopUpLeader]

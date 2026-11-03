@@ -11,7 +11,7 @@ from lib.income_pdf import render_month_pdf
 
 from lib.auth import require_admin
 from lib.db import db
-from models.report import DailyReport, DayRow, MonthIncome, MonthlyIncome, ServiceIncome, StatusCounts, WhatsAppAlert
+from models.report import TopUpLeader, TopUpLeaderboard, DailyReport, DayRow, MonthIncome, MonthlyIncome, ServiceIncome, StatusCounts, WhatsAppAlert
 
 router = APIRouter(prefix="/admin", tags=["reports"], dependencies=[Depends(require_admin)])
 IST = ZoneInfo("Asia/Kolkata")
@@ -171,6 +171,35 @@ async def monthly_income_pdf(month: str = Query(..., pattern=r"^\d{4}-(0[1-9]|1[
     pdf = render_month_pdf(data, site.get("site_name") or "Sevakendra", datetime.now(timezone.utc).astimezone(IST))
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="income-by-service-{month}.pdf"'})
+
+
+@router.get("/reports/topup-leaderboard", response_model=TopUpLeaderboard)
+async def topup_leaderboard(month: str | None = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")):
+    """Users ranked by verified wallet top-ups in one IST month (default: this month)."""
+    today = datetime.now(timezone.utc).astimezone(IST).date()
+    y, m = today.year, today.month
+    months = []
+    for _ in range(6):
+        months.append(f"{y:04d}-{m:02d}")
+        y, m = (y, m - 1) if m > 1 else (y - 1, 12)
+    month = month or months[0]
+    yy, mm = int(month[:4]), int(month[5:])
+    start = datetime(yy, mm, 1, tzinfo=IST).astimezone(timezone.utc)
+    end = datetime(yy + (mm == 12), mm % 12 + 1, 1, tzinfo=IST).astimezone(timezone.utc)
+    rows = await db.wallet_transactions.aggregate([
+        {"$match": {"created_at": {"$gte": start, "$lt": end}, "type": "credit", "$or": [
+            {"category": "topup"}, {"category": {"$exists": False}, "reason": {"$regex": "^Payment verified"}},
+        ]}},
+        {"$group": {"_id": "$user_id", "total": {"$sum": "$amount"}, "count": {"$sum": 1}, "last_at": {"$max": "$created_at"},
+                    "name": {"$last": "$user_name"}, "mobile": {"$last": "$user_mobile"}}},
+        {"$sort": {"total": -1, "count": -1}}, {"$limit": 20},
+    ]).to_list(20)
+    users = {u["id"]: u async for u in db.users.find({"id": {"$in": [r["_id"] for r in rows]}}, {"_id": 0, "id": 1, "name": 1, "mobile": 1})}
+    leaders = [TopUpLeader(
+        user_id=r["_id"], user_name=users.get(r["_id"], {}).get("name") or r["name"], user_mobile=users.get(r["_id"], {}).get("mobile") or r["mobile"],
+        total=round(r["total"], 2), count=r["count"], last_at=_utc(r["last_at"]),
+    ) for r in rows]
+    return TopUpLeaderboard(month=month, months=months, total=round(sum(x.total for x in leaders), 2), leaders=leaders)
 
 
 @router.get("/whatsapp-alerts", response_model=list[WhatsAppAlert])

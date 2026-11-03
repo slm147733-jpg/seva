@@ -14,6 +14,7 @@ import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
 import MissingDocs from "./MissingDocs";
 import RejectDialog from "./RejectDialog";
+import ReceiptChip from "./ReceiptChip";
 import ResubmitBox from "./ResubmitBox";
 
 function FileChip({ file, tone = "light", testId }: { file: FileMeta; tone?: "light" | "dark"; testId: string }) {
@@ -139,6 +140,7 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
             {a && (
               <span>
                 <span className="font-semibold text-amber-800" data-testid="detail-service">{a.service_name}</span>
+                <ReceiptChip a={a} />
                 {a.service_fee !== null && (
                   <span className="ml-1 font-mono text-xs text-stone-600" data-testid="detail-fee">({formatINR(a.service_fee)})</span>
                 )}{" "}

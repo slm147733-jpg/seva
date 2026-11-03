@@ -1,3 +1,4 @@
+import ReceiptChip from "./ReceiptChip";
 import { FileImage, FileText, MessageSquare } from "lucide-react";
 import { formatIST } from "@/lib/hooks";
 import { formatBytes } from "@/lib/live";
@@ -75,6 +76,7 @@ export default function AttachmentList({ items, showUser, onOpen, emptyText, sel
                     Resubmitted
                   </span>
                 )}
+                <ReceiptChip a={a} />
               </p>
               <p className="text-xs text-stone-500 truncate">
                 {showUser && (

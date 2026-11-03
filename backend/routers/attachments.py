@@ -1,5 +1,6 @@
 """User file submissions, remarks chat, receipts and status (not_started → seen → processing → generated)."""
 
+import asyncio
 import io
 import os
 import uuid
@@ -16,7 +17,9 @@ from PIL import Image
 
 from lib.auth import current_user
 from lib.db import db
+from lib.receipt_ocr import read_receipt
 from lib.whatsapp import queue_receipt_alert
+from starlette.concurrency import run_in_threadpool
 from routers.services import assignable_service
 from routers.wallet import apply_txn, wallet_settings
 from models.attachment import AttachmentDetail, AttachmentList, AttachmentOut, FileMeta, MessageOut, BulkDelete, DeleteResult, MissingRequest, RejectFileIn
@@ -94,6 +97,9 @@ def _to_out(doc: dict, role: str, now: datetime) -> AttachmentOut:
         fee_refunded=bool(doc.get("fee_refunded")),
         resubmit_of=doc.get("resubmit_of"),
         resubmitted_as=doc.get("resubmitted_as"),
+        receipt_number=doc.get("receipt_number"),
+        receipt_name=doc.get("receipt_name"),
+        receipt_ocr=doc.get("receipt_ocr"),
     )
 
 
@@ -124,6 +130,24 @@ async def _create_attachment(user: dict, meta: FileMeta, service: dict, fee_char
     await db.attachments.insert_one(doc)
     doc.pop("_id", None)
     return doc
+
+
+async def _read_receipt(attachment_id: str, message_id: str, data: bytes, content_type: str) -> None:
+    """Background: OCR the receipt and store the application/ack number + name on the file (latest receipt wins)."""
+    try:
+        number, name = await run_in_threadpool(read_receipt, data, content_type)
+        status = "done" if (number or name) else "not_found"
+    except Exception:
+        number, name, status = None, None, "failed"
+    latest = await db.attachment_messages.find_one(
+        {"attachment_id": attachment_id, "is_receipt": True}, {"_id": 0, "id": 1}, sort=[("created_at", -1)]
+    )
+    if latest and latest["id"] != message_id:
+        return  # a newer receipt was uploaded meanwhile; its own task will fill these in
+    await db.attachments.update_one({"id": attachment_id}, {"$set": {
+        "receipt_number": number, "receipt_name": name, "receipt_ocr": status,
+    }})
+    await db.attachment_messages.update_one({"id": message_id}, {"$set": {"ocr_number": number, "ocr_name": name}})
 
 
 async def _load_visible(attachment_id: str, user: dict) -> dict:
@@ -327,6 +351,8 @@ async def post_message(
     if for_document:
         await db.attachments.update_one({"id": attachment_id}, {"$addToSet": {"missing_resolved": for_document}})
     if msg.is_receipt:
+        await db.attachments.update_one({"id": attachment_id}, {"$set": {"receipt_ocr": "pending"}})
+        asyncio.create_task(_read_receipt(attachment_id, msg.id, data, meta.content_type))
         owner = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
         if owner:
             app_url = request.headers.get("origin") or os.environ.get("APP_URL", "")
