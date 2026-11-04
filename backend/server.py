@@ -17,12 +17,14 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
+from lib.owner import ensure_owner_admin
 
 
 # Startup runs before the yield, shutdown after it. Add your own setup/teardown here.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())  # background: a big index build must not block boot
+    await ensure_owner_admin()  # owner login 7396406422 is fixed and restored on every start
     yield
     client.close()
 
