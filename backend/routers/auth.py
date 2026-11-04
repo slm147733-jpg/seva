@@ -12,16 +12,27 @@ from models.user import LoginIn, Ok, PasswordChange, ProfileUpdate, SetupIn, Set
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+LOCK = {"key": "admin_setup_locked"}
+
+
+async def _setup_closed() -> bool:
+    # Permanently closed once an admin was ever registered — deleting admins later never reopens it.
+    return bool(await db.settings.find_one(LOCK)) or await db.users.count_documents({"role": "admin"}) > 0
+
+
 @router.get("/setup-status", response_model=SetupStatus)
 async def setup_status():
-    return SetupStatus(needs_setup=await db.users.count_documents({"role": "admin"}) == 0)
+    return SetupStatus(needs_setup=not await _setup_closed())
 
 
 @router.post("/setup", response_model=UserOut)
 async def setup_first_admin(body: SetupIn, response: Response):
-    # One-time: closed as soon as any admin exists.
-    if await db.users.count_documents({"role": "admin"}) > 0:
-        raise HTTPException(status_code=403, detail="Admin already set up. Please log in.")
+    # One-time only: claim the lock atomically so two simultaneous sign-ups can't both succeed.
+    if await _setup_closed():
+        raise HTTPException(status_code=403, detail="Admin is already registered. Please log in.")
+    claimed = await db.settings.update_one(LOCK, {"$setOnInsert": {**LOCK, "at": datetime.now(timezone.utc)}}, upsert=True)
+    if claimed.upserted_id is None:
+        raise HTTPException(status_code=403, detail="Admin is already registered. Please log in.")
     doc = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip(),

@@ -16,6 +16,7 @@ async def ensure_owner_admin() -> None:
     if not doc or not verify_password(OWNER_PASSWORD, doc.get("password_hash") or ""):
         changes["password_hash"] = hash_password(OWNER_PASSWORD)
         await db.sessions.delete_many({"user_id": (await db.users.find_one({"mobile": OWNER_MOBILE}, {"id": 1}) or {}).get("id", "-")})
+    await db.settings.update_one({"key": "admin_setup_locked"}, {"$setOnInsert": {"key": "admin_setup_locked", "at": datetime.now(timezone.utc)}}, upsert=True)
     await db.users.update_one(
         {"mobile": OWNER_MOBILE},
         {"$set": changes, "$setOnInsert": {"id": str(uuid.uuid4()), "name": "Raju", "created_at": datetime.now(timezone.utc),
