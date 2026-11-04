@@ -34,10 +34,13 @@ const TABS = [
   { id: "settings", label: "Site settings", icon: Settings },
 ];
 
-function SidebarNav({ tab, setTab, prefix, unread, walletPending = 0 }: { tab: string; setTab: (t: string) => void; prefix: string; unread: number; walletPending?: number }) {
+// "Files only" admins see just the User files tab (the backend enforces the same limit).
+const tabsFor = (scope: string | undefined, owner: boolean) => (scope === "files" && !owner ? TABS.filter((t) => t.id === "files") : TABS);
+
+function SidebarNav({ tab, setTab, prefix, unread, walletPending = 0, tabs }: { tab: string; setTab: (t: string) => void; prefix: string; unread: number; walletPending?: number; tabs: typeof TABS }) {
   return (
     <nav className="flex flex-col gap-1">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <button
           key={t.id}
           type="button"
@@ -70,7 +73,9 @@ function SidebarNav({ tab, setTab, prefix, unread, walletPending = 0 }: { tab: s
 export default function AdminDashboard() {
   const me = useMe();
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.id === params.get("tab")) ? (params.get("tab") as string) : "overview";
+  const fullAdmin = me.data?.role === "admin" && (me.data.admin_scope !== "files" || me.data.is_owner);
+  const tabs = tabsFor(me.data?.admin_scope, !!me.data?.is_owner);
+  const tab = tabs.some((t) => t.id === params.get("tab")) ? (params.get("tab") as string) : tabs[0].id;
   const setTab = (t: string) => setParams({ tab: t });
   const live = useLiveAttachments(me.data?.role === "admin" ? "admin" : undefined);
   const files = live.data && !live.isError ? live.data.items : [];
@@ -78,7 +83,7 @@ export default function AdminDashboard() {
   const walletReqs = useQuery({
     queryKey: ["admin-wallet-requests"],
     queryFn: () => apiGet<WalletRequest[]>("/admin/wallet/requests?status=pending"),
-    enabled: me.data?.role === "admin",
+    enabled: fullAdmin,
     refetchInterval: 5000,
   });
   const pending = walletReqs.data && !walletReqs.isError ? walletReqs.data : [];
@@ -131,7 +136,7 @@ export default function AdminDashboard() {
               <p className="text-[11px] uppercase tracking-wider text-orange-400">Admin console</p>
             </div>
           </div>
-          <SidebarNav tab={tab} setTab={setTab} prefix="sidebar" unread={unread} walletPending={pending.length} />
+          <SidebarNav tab={tab} setTab={setTab} prefix="sidebar" unread={unread} walletPending={pending.length} tabs={tabs} />
         </div>
         <div className="rounded-xl bg-stone-900 p-3">
           <p className="text-sm font-medium text-stone-100 truncate" data-testid="admin-name">
@@ -158,7 +163,7 @@ export default function AdminDashboard() {
               </SheetTrigger>
               <SheetContent side="left" className="bg-stone-950 p-4 border-stone-800">
                 <SheetTitle className="text-stone-50 mb-4">Admin console</SheetTitle>
-                <SidebarNav tab={tab} setTab={setTab} prefix="mobile" unread={unread} walletPending={pending.length} />
+                <SidebarNav tab={tab} setTab={setTab} prefix="mobile" unread={unread} walletPending={pending.length} tabs={tabs} />
                 <Button variant="ghost" className="mt-6 justify-start text-stone-300" onClick={() => endSession()}>
                   <LogOut className="size-4" /> Logout
                 </Button>

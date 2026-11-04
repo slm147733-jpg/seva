@@ -12,6 +12,34 @@ export interface UserOut {
   last_login: string | null;
   service_ids: string[];
   wallet_balance: number;
+  admin_scope: AdminScope;
+  is_owner: boolean;
+}
+
+export type AdminScope = "full" | "files";
+
+export interface AdminRegisterIn {
+  name: string;
+  mobile: string;
+  password: string;
+}
+
+export interface AdminRequest {
+  id: string;
+  name: string;
+  mobile: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  resolved_at: string | null;
+  scope: AdminScope | null;
+}
+
+export interface ApproveAdminIn {
+  scope: AdminScope;
+}
+
+export interface ScopeIn {
+  scope: AdminScope;
 }
 
 export interface SetupStatus {

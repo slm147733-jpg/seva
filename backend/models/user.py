@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Mobile = Field(pattern=r"^[6-9]\d{9}$", description="10-digit Indian mobile number")
 Password = Field(min_length=6, max_length=128)
@@ -19,6 +19,41 @@ class UserOut(BaseModel):
     last_login: Optional[datetime] = None
     service_ids: list[str] = []
     wallet_balance: float = 0
+    admin_scope: Literal["full", "files"] = "full"  # "files" = User files & receipts only
+    is_owner: bool = False
+
+
+AdminScope = Literal["full", "files"]
+# New admins: at least 8 characters with a letter and a number.
+class AdminRegisterIn(BaseModel):
+    name: str = Name
+    mobile: str = Mobile
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def strong(cls, v: str) -> str:
+        if not (any(c.isalpha() for c in v) and any(c.isdigit() for c in v)):
+            raise ValueError("Password must have at least 8 characters with a letter and a number")
+        return v
+
+
+class AdminRequest(BaseModel):
+    id: str
+    name: str
+    mobile: str
+    status: Literal["pending", "approved", "rejected"]
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    scope: Optional[AdminScope] = None
+
+
+class ApproveAdminIn(BaseModel):
+    scope: AdminScope
+
+
+class ScopeIn(BaseModel):
+    scope: AdminScope
 
 
 class SetupStatus(BaseModel):
