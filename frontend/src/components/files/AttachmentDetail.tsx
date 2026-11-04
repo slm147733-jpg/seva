@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, ExternalLink, Paperclip, ReceiptText, Send, Trash2, X } from "lucide-react";
-import { ConfirmDelete } from "@/components/admin/common";
+import { Download, ExternalLink, Paperclip, ReceiptText, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { apiDelete, apiGet, apiUpload, fileUrl } from "@/lib/api";
+import { apiGet, apiUpload, fileUrl } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import { ACCEPT, POLL_MS, formatBytes, playChime, syncServerTime, validateFiles } from "@/lib/live";
-import type { AttachmentDetail as Detail, DeleteResult, FileMeta, MessageOut, Role } from "@/lib/types";
+import type { AttachmentDetail as Detail, FileMeta, MessageOut, Role } from "@/lib/types";
 import { FileIcon } from "./AttachmentList";
 import { StatusBadge, StatusTimer } from "./Status";
 import MissingDocs from "./MissingDocs";
@@ -156,31 +155,6 @@ export default function AttachmentDetail({ id, role, myId, onClose }: {
               {role === "admin" && (
                 <span className="ml-auto flex items-center gap-1">
                   {a.status !== "generated" && a.status !== "rejected" && <RejectDialog a={a} />}
-                  <ConfirmDelete
-                    title="Delete this file?"
-                    description={`Removes the file, its remarks, receipts and WhatsApp alert entries for both sides. This cannot be undone.${
-                      a.fee_charged > 0 && !a.fee_refunded && a.status !== "generated"
-                        ? ` The ${formatINR(a.fee_charged)} fee will be refunded to ${a.user_name}'s wallet.`
-                        : ""
-                    }`}
-                    testId="detail-delete-button"
-                    trigger={<Trash2 className="size-4" />}
-                    onConfirm={async () => {
-                      try {
-                        const r = await apiDelete<DeleteResult>(`/attachments/${a.id}`);
-                        toast.success(r.refunded > 0 ? `File deleted · ${formatINR(r.refunded)} refunded` : "File deleted");
-                        qc.invalidateQueries({ queryKey: ["admin-users"] });
-                        onClose();
-                        qc.removeQueries({ queryKey: ["attachment", a.id] });
-                        qc.invalidateQueries({ queryKey: ["attachments"] });
-                        qc.invalidateQueries({ queryKey: ["daily-report"] });
-      qc.invalidateQueries({ queryKey: ["monthly-income"] });
-                        qc.invalidateQueries({ queryKey: ["whatsapp-alerts"] });
-                      } catch (e) {
-                        toast.error(errorMessage(e, "Could not delete"));
-                      }
-                    }}
-                  />
                 </span>
               )}
             </div>
