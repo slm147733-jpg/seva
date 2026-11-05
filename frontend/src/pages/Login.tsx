@@ -88,14 +88,7 @@ export default function Login() {
           {login.isPending && <Loader2 className="size-4 animate-spin" />} Sign in
         </Button>
       </form>
-      <p className="mt-5 text-sm text-stone-600">
-        New admin?{" "}
-        <Link to="/admin/register" className="font-semibold text-orange-700 hover:underline" data-testid="login-admin-register-link">
-          Register as admin
-        </Link>{" "}
-        <span className="text-stone-500">— needs the owner's approval.</span>
-      </p>
-      <p className="mt-4 text-sm text-stone-500">
+      <p className="mt-8 text-sm text-stone-500">
         Don't have an account? Ask your Sevakendra admin to create one.{" "}
         <Link to="/" className="text-orange-700 font-medium hover:underline" data-testid="login-back-home">
           Back to website

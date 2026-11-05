@@ -59,59 +59,7 @@ async def current_user(request: Request) -> dict:
     return user
 
 
-OWNER_MOBILE = "7396406422"
-
-
-def is_owner(user: dict) -> bool:
-    return user.get("role") == "admin" and user.get("mobile") == OWNER_MOBILE
-
-
-def _files_scope_allows(request: Request) -> bool:
-    """'Files only' admins may work on user files and receipts — nothing else (no deletes, wallets, users, settings)."""
-    path, method = request.url.path, request.method
-    if path.startswith("/api/attachments"):
-        return method != "DELETE" and not path.endswith("/bulk-delete")
-    return method == "GET" and path == "/api/admin/reject-reasons"
-
-
-async def require_admin(request: Request, user: dict = Depends(current_user)) -> dict:
+async def require_admin(user: dict = Depends(current_user)) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    if user.get("admin_scope") == "files" and not is_owner(user) and not _files_scope_allows(request):
-        raise HTTPException(status_code=403, detail="Your admin access covers User files only")
     return user
-
-
-async def require_owner(user: dict = Depends(current_user)) -> dict:
-    if not is_owner(user):
-        raise HTTPException(status_code=403, detail="Only the owner admin can do this")
-    return user
-
-
-# ---- Login lockout: 5 wrong passwords lock that mobile number for 15 minutes ----
-MAX_FAILS, LOCK_MINUTES = 5, 15
-
-
-async def check_lock(mobile: str) -> None:
-    doc = await db.login_attempts.find_one({"mobile": mobile})
-    until = doc and doc.get("locked_until")
-    if until and until.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-        mins = max(1, int((until.replace(tzinfo=timezone.utc) - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
-        raise HTTPException(status_code=429, detail=f"Too many wrong passwords. Try again in {mins} minute{'s' if mins != 1 else ''}.")
-
-
-async def record_fail(mobile: str) -> int:
-    """Returns attempts left before lock (0 = just locked)."""
-    doc = await db.login_attempts.find_one_and_update(
-        {"mobile": mobile}, {"$inc": {"fails": 1}, "$setOnInsert": {"mobile": mobile}}, upsert=True, return_document=True,
-    )
-    fails = doc.get("fails", 1)
-    if fails >= MAX_FAILS:
-        await db.login_attempts.update_one({"mobile": mobile}, {"$set": {
-            "fails": 0, "locked_until": datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)}})
-        return 0
-    return MAX_FAILS - fails
-
-
-async def clear_fails(mobile: str) -> None:
-    await db.login_attempts.delete_one({"mobile": mobile})

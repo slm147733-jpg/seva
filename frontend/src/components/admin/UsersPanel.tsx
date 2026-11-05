@@ -14,9 +14,6 @@ import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { errorMessage, formatIST } from "@/lib/hooks";
 import type { Ok, Role, Service, UserCreate, UserOut, UserUpdate } from "@/lib/types";
 import { ConfirmDelete, PanelHeader } from "./common";
-import AdminRequests from "./AdminRequests";
-import { useMe } from "@/lib/hooks";
-import type { ScopeIn } from "@/lib/types";
 
 const ROLE_LABELS: Record<string, string> = { user: "User", admin: "Admin" };
 
@@ -228,23 +225,12 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const owner = !!useMe().data?.is_owner;
-  const scope = useMutation({
-    mutationFn: (u: UserOut) =>
-      apiPut<UserOut>(`/admin/admins/${u.id}/scope`, { scope: u.admin_scope === "files" ? "full" : "files" } satisfies ScopeIn),
-    onSuccess: (u) => {
-      toast.success(`${u.name} now has ${u.admin_scope === "files" ? "files-only" : "full"} access`);
-      qc.invalidateQueries({ queryKey: ["admin-users"] });
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  });
   const users = (data && !isError ? data : []).filter((u) =>
     `${u.name} ${u.mobile}`.toLowerCase().includes(q.toLowerCase()),
   );
 
   return (
     <div>
-      {owner && <AdminRequests />}
       <PanelHeader
         title="User management"
         subtitle="Create logins with mobile & password, edit details, reset passwords or turn accounts on/off."
@@ -289,20 +275,6 @@ export default function UsersPanel({ currentAdminId }: { currentAdminId: string 
                   <TableCell className="font-mono text-sm">{u.mobile}</TableCell>
                   <TableCell>
                     <Badge variant={u.role === "admin" ? "default" : "secondary"}>{ROLE_LABELS[u.role]}</Badge>
-                    {u.role === "admin" && (
-                      <button
-                        type="button"
-                        disabled={!owner || u.is_owner || scope.isPending}
-                        onClick={() => scope.mutate(u)}
-                        title={owner && !u.is_owner ? "Click to switch access" : undefined}
-                        className={`ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors duration-150 disabled:cursor-default ${
-                          u.is_owner ? "bg-orange-100 text-orange-800" : u.admin_scope === "files" ? "bg-sky-100 text-sky-900 enabled:hover:bg-sky-200" : "bg-stone-100 text-stone-700 enabled:hover:bg-stone-200"
-                        }`}
-                        data-testid={`user-scope-${u.mobile}`}
-                      >
-                        {u.is_owner ? "Owner" : u.admin_scope === "files" ? "Files only" : "Full access"}
-                      </button>
-                    )}
                   </TableCell>
                   <TableCell className="max-w-[220px]" data-testid={`user-services-${u.mobile}`}>
                     {u.role === "admin" ? (
