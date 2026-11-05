@@ -85,3 +85,11 @@ admin (admin only): users CRUD + /users/{id}/reset-password, GET stats, pages CR
 - Fixed owner admin: lib/owner.py ensure_owner_admin() runs on every backend start (FastAPI lifespan) and in seed.py. It makes sure 7396406422 exists, is an active admin, and has password 123456, restoring it if it was changed (and signing out old sessions).
 
 - Admin registration: there is no register option on the login page. First-admin setup (/admin/setup) works only while no admin account exists; the fixed owner admin is always restored on start, so in practice it stays closed. New admins are created by an existing admin in Users.
+
+## Hostinger static + Supabase build (in progress)
+- The current FastAPI + MongoDB app is untouched and still runs the preview. The static build is the same React app built with VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY. In that mode, src/lib/api.ts sends every "/api/..." call to src/lib/supabaseApi.ts, which answers it with supabase-js (tables, RPCs, Storage).
+- supabase/schema.sql (also served at /supabase-schema.sql) holds the tables (doc jsonb mirrors the Mongo docs), RLS (admins all; users only their own rows, messages and storage folder; public pages, links and site settings), SECURITY DEFINER RPCs for every money or status change, admin user management through auth.users with crypt(), and pg_cron hourly reminders.
+- backend/scripts/migrate_to_supabase.py (service-role key, run here only) copies auth users with their existing bcrypt hashes and the same ids (owner 7396406422 → slm147733@gmail.com, others mobile@sevakendra.app), every collection, GridFS files to the private "uploads" bucket (<owner id>/<file id>-name), and inlines the wallet QR as qr_data_url.
+- Login: the mobile number is looked up with rpc login_email, then signInWithPassword. Receipt OCR runs in the browser (tesseract.js). The monthly PDF is a printable page.
+- ZIP: frontend/public/sevakendra-hostinger.zip (built into /tmp/hbuild, with an .htaccess for SPA routing and HTTPS).
+- STATUS: schema.sql has NOT been applied to project xrhcqypggodtfsmytbsd yet, so the migration hasn't run and the build is untested against Supabase.

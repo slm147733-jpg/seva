@@ -1,6 +1,18 @@
 // Typed fetch layer over the FastAPI backend. Base is the relative "/api" prefix so the
 // same code works in dev (Vite proxies /api → :8001) and behind a single origin in prod.
+import { SUPABASE_MODE, handle, signedUrl, SbError } from "./supabaseApi";
+
 const BASE = "/api";
+
+// Static (Hostinger) build: the same paths are answered by Supabase in the browser.
+async function viaSupabase<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try {
+    return (await handle(method, path, body)) as T;
+  } catch (e) {
+    if (e instanceof SbError) throw new ApiError(e.status, e.body);
+    throw e;
+  }
+}
 
 // Fields are declared, not constructor parameter properties: tsconfig sets
 // erasableSyntaxOnly, which rejects `constructor(readonly status: number)`.
@@ -19,6 +31,7 @@ export class ApiError extends Error {
 type JsonBody = unknown;
 
 async function request<T>(method: string, path: string, body?: JsonBody): Promise<T> {
+  if (SUPABASE_MODE) return viaSupabase<T>(method, path, body);
   // Auth rides the httpOnly session cookie automatically — never add auth headers here.
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -47,6 +60,7 @@ export const apiDelete = <T>(path: string) => request<T>("DELETE", path);
 
 // Multipart upload (files + form fields). The browser sets the multipart boundary header itself.
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  if (SUPABASE_MODE) return viaSupabase<T>("POST", path, form);
   const res = await fetch(`${BASE}${path}`, { method: "POST", body: form });
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);
@@ -57,4 +71,6 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 
 // Relative URL for viewing/downloading a stored file (auth rides the session cookie).
 export const fileUrl = (fileId: string, download = false) =>
-  `${BASE}/files/${fileId}${download ? "?download=true" : ""}`;
+  SUPABASE_MODE
+    ? `${signedUrl(fileId)}${download ? "&download=" : ""}`
+    : `${BASE}/files/${fileId}${download ? "?download=true" : ""}`;

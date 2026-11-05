@@ -1,3 +1,4 @@
+import { SUPABASE_MODE, qrImage } from "@/lib/supabaseApi";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -138,7 +139,7 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
                   {amt && <p className="text-xs text-orange-700 font-semibold">Amount {rupees(amt)} pre-filled</p>}
                 </>
               ) : mode === "image" ? (
-                <img src="/api/wallet/qr-image" alt="Payment QR" className="max-h-64 rounded-xl border border-stone-200" data-testid="wallet-qr-image" />
+                <img src={SUPABASE_MODE ? qrImage() : "/api/wallet/qr-image"} alt="Payment QR" className="max-h-64 rounded-xl border border-stone-200" data-testid="wallet-qr-image" />
               ) : (
                 <p className="py-8 text-center text-sm text-stone-500" data-testid="wallet-qr-missing">
                   The admin hasn't set up a payment QR yet. Please pay at the counter.

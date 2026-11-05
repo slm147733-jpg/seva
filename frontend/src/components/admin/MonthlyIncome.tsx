@@ -1,3 +1,4 @@
+import { SUPABASE_MODE, printMonthlyIncome } from "@/lib/supabaseApi";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileDown, Trophy } from "lucide-react";
@@ -30,7 +31,13 @@ export default function MonthlyIncome() {
           <p className="text-sm text-stone-500">Wallet fees collected minus refunds, per service. Highest earner first.</p>
           {m && (
             <a
-              href={`/api/admin/reports/monthly-income.pdf?month=${m.month}`}
+              href={SUPABASE_MODE ? "#" : `/api/admin/reports/monthly-income.pdf?month=${m.month}`}
+              onClick={(e) => {
+                if (SUPABASE_MODE) {
+                  e.preventDefault();
+                  void printMonthlyIncome(m.month);
+                }
+              }}
               download
               className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-stone-700 transition-colors duration-150"
               data-testid="monthly-income-download-pdf"

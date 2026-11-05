@@ -1,3 +1,4 @@
+import { SUPABASE_MODE, qrImage } from "@/lib/supabaseApi";
 import { useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
@@ -170,7 +171,7 @@ function SettingsCard({ info }: { info: PaymentInfo }) {
         )}
         {info.has_qr_image && (
           <div className="text-center">
-            <img src={`/api/wallet/qr-image?v=${Date.now() >> 16}`} alt="Shop QR" className="h-[136px] rounded-xl border border-stone-200" data-testid="wallet-settings-qr-image" />
+            <img src={SUPABASE_MODE ? qrImage() : `/api/wallet/qr-image?v=${Date.now() >> 16}`} alt="Shop QR" className="h-[136px] rounded-xl border border-stone-200" data-testid="wallet-settings-qr-image" />
             <p className="mt-1 text-[11px] text-stone-500">Shop QR</p>
           </div>
         )}
