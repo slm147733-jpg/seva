@@ -2,11 +2,16 @@
 // already call, so every feature keeps working without a server. Only the public/publishable key is used here;
 // all money and status changes run inside Postgres functions protected by Row Level Security.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { localClient } from "./localDb";
 
-export const SUPABASE_MODE = Boolean(import.meta.env.VITE_SUPABASE_URL);
+// VITE_LOCAL_MODE=1: plain static build with no server and no Supabase (saved logins in seed.json, data in this browser).
+export const LOCAL_MODE = import.meta.env.VITE_LOCAL_MODE === "1";
+export const SUPABASE_MODE = LOCAL_MODE || Boolean(import.meta.env.VITE_SUPABASE_URL);
 let sb: SupabaseClient | null = null;
-const client = () =>
-  (sb ??= createClient(import.meta.env.VITE_SUPABASE_URL as string, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string));
+const client = (): SupabaseClient =>
+  LOCAL_MODE
+    ? (localClient as unknown as SupabaseClient)
+    : (sb ??= createClient(import.meta.env.VITE_SUPABASE_URL as string, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string));
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export class SbError extends Error {

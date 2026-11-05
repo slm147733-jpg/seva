@@ -1,6 +1,6 @@
 // Typed fetch layer over the FastAPI backend. Base is the relative "/api" prefix so the
 // same code works in dev (Vite proxies /api → :8001) and behind a single origin in prod.
-import { SUPABASE_MODE, handle, signedUrl, SbError } from "./supabaseApi";
+import { LOCAL_MODE, SUPABASE_MODE, handle, signedUrl, SbError } from "./supabaseApi";
 
 // VITE_API_BASE lets a static copy (e.g. Hostinger) talk to the live server on another domain.
 // Empty in this app's own preview/deploy, so calls stay relative.
@@ -93,5 +93,5 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 // Relative URL for viewing/downloading a stored file (auth rides the session cookie).
 export const fileUrl = (fileId: string, download = false) =>
   SUPABASE_MODE
-    ? `${signedUrl(fileId)}${download ? "&download=" : ""}`
+    ? `${signedUrl(fileId)}${download && !LOCAL_MODE ? "&download=" : ""}`
     : apiUrl(`/files/${fileId}${download ? "?download=true" : ""}`);

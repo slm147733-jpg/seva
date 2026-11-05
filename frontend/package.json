@@ -31,6 +31,7 @@
     "@icons-pack/react-simple-icons": "13.15.1",
     "@supabase/supabase-js": "2",
     "@tanstack/react-query": "5.101.4",
+    "bcryptjs": "^3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "date-fns": "4.4.0",
