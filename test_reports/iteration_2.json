@@ -1,0 +1,59 @@
+{
+  "iteration": 2,
+  "summary": "3/3 backend pytest cases passed (2 new files); 4/4 browser checks passed. All 6 acceptance_matrix criteria exercised. Pre-existing stale backend tests from iteration 1 (attachments/camera/status/remarks/access-control, out of scope for this matrix) are failing due to an unrelated app change (POST /api/attachments now requires service_id) -- flagged as a note, not fixed per scope rules.",
+  "passed": 7,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    {
+      "type": "note",
+      "severity": "medium",
+      "detail": "Pre-existing backend tests from iteration 1 (test_tscheck_file_type_validation.py, test_tscheck_camera_capture.py, test_tscheck_access_control.py, test_tscheck_remarks_chat.py, test_tscheck_status_lifecycle.py) now fail because POST /api/attachments requires a service_id field that those older fixtures don't send. This is unrelated to the current briefing's acceptance_matrix (Hostinger cross-domain login) and reflects the app having evolved since iteration 1. Out of scope to fix here; main agent should re-check these test files or the attachments API contract when attachment-upload features are revisited."
+    }
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Backend bearer auth: POST /api/auth/login returns X-Session-Token header; GET /api/auth/me with Authorization: Bearer works / 401 without; CORS preflight from foreign Origin allows authorization header and exposes X-Session-Token",
+      "name": "test_tscheck_bearer_auth_cors.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auth/login -> 200 with x-session-token header; GET /api/auth/me with Authorization: Bearer <token> -> 200 (mobile=7396406422); GET /api/auth/me with fresh no-auth client -> 401; OPTIONS /api/auth/me preflight with Origin: http://localhost:5055 -> allow-origin echoes it, allow-headers includes authorization; actual login from that Origin -> access-control-expose-headers: X-Session-Token present"
+    },
+    {
+      "criterion": "ZIP contents: sevakendra-hostinger-live.zip contains index.html, assets/, .htaccess; no Supabase service-role key",
+      "name": "test_tscheck_hostinger_zip_contents.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "zipfile.namelist() includes index.html, assets/ entries, and .htaccess; scanned all non-directory entries for 'service_role'/'SERVICE_ROLE'/'service-role' byte patterns -- none found"
+    },
+    {
+      "criterion": "Saved admin login works from a static copy hosted on a DIFFERENT domain (unzip to /tmp, serve on :5055, login against the preview API)",
+      "name": "hostinger-cross-domain-login",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Unzipped sevakendra-hostinger-live.zip, served via `python -m http.server 5055`; logged in with 7396406422/123456 on http://localhost:5055 -> dashboard showed 'Namaste, Raju' and the 'User files' tab with 17 existing user files, Processing/Generated/Rejected counts visible; response Access-Control-Allow-Origin correctly echoed http://localhost:5055 and localStorage.sk_token was set to the X-Session-Token value"
+    },
+    {
+      "criterion": "Session persists in the cross-domain copy across tab navigation; logout clears sk_token and returns to login",
+      "name": "hostinger-cross-domain-session-persist",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "After login on :5055, navigated sidebar tabs (User files, Users) with no redirect to a login form and sk_token still present; clicked admin-logout-button, POST /api/auth/logout -> 200, localStorage.sk_token removed afterward. Note: the local python static server has no SPA fallback so the post-logout full-page nav to /login 404s here (matches the documented spec_deviation; Hostinger's bundled .htaccess handles this in production) -- not asserted as part of this check"
+    },
+    {
+      "criterion": "Wrong password rejected in cross-domain copy",
+      "name": "hostinger-cross-domain-wrong-password",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "On http://localhost:5055, login with 7396406422 / wrong-password-123 -> POST /api/auth/login returned 401; UI stayed on the login form (password field still visible), no 'Namaste, Raju' dashboard rendered, and localStorage.sk_token was never set"
+    },
+    {
+      "criterion": "Normal same-origin app on the preview URL still works (regression)",
+      "name": "preview-regression-admin-login",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "On https://sevakendra-admin--7tra4y2j.preview.emergentagent.com/login, logged in with 7396406422/123456 -> 'Namaste, Raju' dashboard and the User files sidebar tab rendered correctly"
+    }
+  ]
+}

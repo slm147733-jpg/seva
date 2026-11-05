@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AdjustDialog, { invalidateWallet } from "@/components/wallet/AdjustDialog";
 import { upiLink } from "@/components/wallet/WalletButton";
-import { apiDelete, apiGet, apiPost, apiPut, apiUpload } from "@/lib/api";
+import { apiDelete, apiGet, apiPost, apiPut, apiUpload, apiUrl } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import type { ApproveIn, PaymentInfo, RejectIn, UserOut, WalletRequest, WalletSettingsIn, WalletTxn } from "@/lib/types";
 import { PanelHeader } from "./common";
@@ -171,7 +171,7 @@ function SettingsCard({ info }: { info: PaymentInfo }) {
         )}
         {info.has_qr_image && (
           <div className="text-center">
-            <img src={SUPABASE_MODE ? qrImage() : `/api/wallet/qr-image?v=${Date.now() >> 16}`} alt="Shop QR" className="h-[136px] rounded-xl border border-stone-200" data-testid="wallet-settings-qr-image" />
+            <img src={SUPABASE_MODE ? qrImage() : apiUrl(`/wallet/qr-image?v=${Date.now() >> 16}`)} alt="Shop QR" className="h-[136px] rounded-xl border border-stone-200" data-testid="wallet-settings-qr-image" />
             <p className="mt-1 text-[11px] text-stone-500">Shop QR</p>
           </div>
         )}

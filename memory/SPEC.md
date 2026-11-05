@@ -93,3 +93,11 @@ admin (admin only): users CRUD + /users/{id}/reset-password, GET stats, pages CR
 - Login: the mobile number is looked up with rpc login_email, then signInWithPassword. Receipt OCR runs in the browser (tesseract.js). The monthly PDF is a printable page.
 - ZIP: frontend/public/sevakendra-hostinger.zip (built into /tmp/hbuild, with an .htaccess for SPA routing and HTTPS).
 - STATUS: schema.sql has NOT been applied to project xrhcqypggodtfsmytbsd yet, so the migration hasn't run and the build is untested against Supabase.
+
+## Static copy on Hostinger (live-server mode)
+- Static files call relative /api, which does not exist on Hostinger → saved logins fail. Fix: build with
+  `VITE_API_BASE=<live Emergent URL> yarn vite build` so the static copy talks to the live server (same Mongo DB, same credentials).
+- Cross-domain auth: login returns `X-Session-Token` header (exposed via CORS); frontend stores it in localStorage (`sk_token`)
+  and sends `Authorization: Bearer`; <img>/<a> API links add `?t=`. Cookie remains for same-origin use (SameSite=None; Secure).
+- `frontend/public/.htaccess` gives SPA fallback + HTTPS on Hostinger. Downloadable build: /sevakendra-hostinger-live.zip.
+- Supabase mode (VITE_SUPABASE_URL) still requires supabase/schema.sql to be run first.

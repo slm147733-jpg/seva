@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileDown, Trophy } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiUrl } from "@/lib/api";
 import type { MonthlyIncome as Monthly } from "@/lib/types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -31,7 +31,7 @@ export default function MonthlyIncome() {
           <p className="text-sm text-stone-500">Wallet fees collected minus refunds, per service. Highest earner first.</p>
           {m && (
             <a
-              href={SUPABASE_MODE ? "#" : `/api/admin/reports/monthly-income.pdf?month=${m.month}`}
+              href={SUPABASE_MODE ? "#" : apiUrl(`/admin/reports/monthly-income.pdf?month=${m.month}`)}
               onClick={(e) => {
                 if (SUPABASE_MODE) {
                   e.preventDefault();

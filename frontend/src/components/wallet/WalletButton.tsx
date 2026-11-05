@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiUrl } from "@/lib/api";
 import { errorMessage, formatINR, formatIST } from "@/lib/hooks";
 import { notify } from "@/lib/live";
 import type { WalletMe, WalletRequest, WalletRequestIn } from "@/lib/types";
@@ -139,7 +139,7 @@ export default function WalletButton({ compact = false }: { compact?: boolean })
                   {amt && <p className="text-xs text-orange-700 font-semibold">Amount {rupees(amt)} pre-filled</p>}
                 </>
               ) : mode === "image" ? (
-                <img src={SUPABASE_MODE ? qrImage() : "/api/wallet/qr-image"} alt="Payment QR" className="max-h-64 rounded-xl border border-stone-200" data-testid="wallet-qr-image" />
+                <img src={SUPABASE_MODE ? qrImage() : apiUrl("/wallet/qr-image")} alt="Payment QR" className="max-h-64 rounded-xl border border-stone-200" data-testid="wallet-qr-image" />
               ) : (
                 <p className="py-8 text-center text-sm text-stone-500" data-testid="wallet-qr-missing">
                   The admin hasn't set up a payment QR yet. Please pay at the counter.

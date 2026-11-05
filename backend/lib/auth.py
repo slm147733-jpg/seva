@@ -30,12 +30,22 @@ async def create_session(response: Response, user_id: str) -> None:
         {"token": token, "user_id": user_id, "created_at": now, "expires_at": now + timedelta(days=SESSION_DAYS)}
     )
     response.set_cookie(
-        COOKIE, token, httponly=True, samesite="lax", secure=True, max_age=SESSION_DAYS * 86400, path="/"
+        COOKIE, token, httponly=True, samesite="none", secure=True, max_age=SESSION_DAYS * 86400, path="/"
     )
+    # Static sites on another domain (e.g. Hostinger) can't rely on third-party cookies,
+    # so the token is also handed back for the browser to send as a Bearer header.
+    response.headers["X-Session-Token"] = token
+
+
+def _token(request: Request) -> str | None:
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip() or None
+    return request.cookies.get(COOKIE) or request.query_params.get("t")
 
 
 async def destroy_session(request: Request, response: Response) -> None:
-    token = request.cookies.get(COOKIE)
+    token = _token(request)
     if token:
         await db.sessions.delete_one({"token": token})
     response.delete_cookie(COOKIE, path="/")
@@ -43,7 +53,7 @@ async def destroy_session(request: Request, response: Response) -> None:
 
 async def current_user(request: Request) -> dict:
     """Re-reads the user every request so deactivation/deletion takes effect immediately."""
-    token = request.cookies.get(COOKIE)
+    token = _token(request)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     session = await db.sessions.find_one({"token": token})
